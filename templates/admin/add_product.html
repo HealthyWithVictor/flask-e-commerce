@@ -37,8 +37,8 @@
                     <input type="number" class="form-control" id="stock" name="stock" required>
                 </div>
                 <div class="mb-3">
-                    <label for="image" class="form-label">商品图片</label>
-                    <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                    <label for="images" class="form-label">商品图片 (可选择多张)</label>
+                    <input type="file" class="form-control" id="images" name="images" accept="image/*" multiple>
                 </div>
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary">添加</button>
@@ -47,5 +47,6 @@
             </form>
         </div>
     </div>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
 </body>
 </html>
