@@ -82,7 +82,17 @@ def home():
     # 2. 获取分类筛选参数
     category_id = request.args.get('category_id', type=int)
     
-    # 3. 构建 SQL 查询
+    # 3. 获取排序参数并进行安全验证 (新增)
+    sort_by = request.args.get('sort', 'id')       # 默认按 id 排序 (最新)
+    sort_order = request.args.get('order', 'DESC') # 默认降序
+    
+    # 验证排序字段和顺序，防止 SQL 注入
+    if sort_by not in ['id', 'name', 'price', 'stock']:
+        sort_by = 'id'
+    if sort_order not in ['ASC', 'DESC']:
+        sort_order = 'DESC'
+    
+    # 4. 构建 SQL 查询
     query_condition = ''
     query_args = []
     
@@ -90,29 +100,32 @@ def home():
         query_condition = 'WHERE category_id = ?'
         query_args.append(category_id)
 
-    # 4. 查询当前页的商品数据
-    products = query_db(f'SELECT * FROM products {query_condition} LIMIT ? OFFSET ?',
+    # 5. 查询当前页的商品数据 (应用排序和分页)
+    # 注意：此处使用 f-string 插入排序字段和顺序是安全的，因为我们已经在上一步进行了验证
+    products = query_db(f'SELECT * FROM products {query_condition} ORDER BY {sort_by} {sort_order} LIMIT ? OFFSET ?',
                         query_args + [per_page, offset])
 
-    # 5. 查询总商品数（用于分页计算）
+    # 6. 查询总商品数（用于分页计算）
     total_products_row = query_db(f'SELECT COUNT(id) AS count FROM products {query_condition}',
                                  query_args, one=True)
     total_products = total_products_row['count']
     
-    # 6. 计算总页数
+    # 7. 计算总页数
     total_pages = math.ceil(total_products / per_page)
 
-    # 7. 查询所有分类（用于侧边栏导航）
+    # 8. 查询所有分类
     categories = query_db('SELECT * FROM categories')
     
+    # 9. 渲染时传递排序参数
     return render_template('home.html', 
                            products=products, 
                            categories=categories,
                            current_page=page, 
                            total_pages=total_pages,
                            current_category_id=category_id, 
-                           total_products=total_products)
-
+                           total_products=total_products,
+                           current_sort=sort_by,         # 新增：当前排序字段
+                           current_order=sort_order)      # 新增：当前排序顺序
 # --- 详细页面 ---
 @app.route('/product/<int:product_id>')
 def product_detail(product_id):
@@ -261,12 +274,22 @@ def admin_add_product():
         
         file = request.files.get('image')
         image_url = None
+        
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            image_url = os.path.join('uploads', filename).replace('\\', '/')
+            
+            # 1. 定义完整的文件系统路径 (用于保存文件)
+            # app.config['UPLOAD_FOLDER'] = 'static/uploads'
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            
+            # 2. 保存文件到文件系统
             file.save(file_path)
-            image_url = os.path.join('uploads', filename)
+            
+            # 3. 定义 Web URL 路径 (用于数据库存储和前端展示)
+            # 确保使用正斜杠 '/' 来兼容所有操作系统和 Web URL 规范
+            image_url = os.path.join('uploads', filename).replace('\\', '/') 
 
+        # 提交商品信息到数据库
         db = get_db()
         db.execute('INSERT INTO products (name, description, price, stock, image_url, category_id) VALUES (?, ?, ?, ?, ?, ?)',
                    (name, description, price, stock, image_url, category_id))
@@ -275,7 +298,6 @@ def admin_add_product():
     
     categories = query_db('SELECT * FROM categories')
     return render_template('admin/add_product.html', categories=categories)
-
 # ... (其他代码保持不变，直到 admin_edit_product) ...
 
 @app.route('/admin/edit/<int:product_id>', methods=['GET', 'POST'])
