@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ product.name }} - 产品详情</title>
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/bootstrap-icons.css') }}" rel="stylesheet">
+    
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">我们的产品</a>
+            <a class="btn btn-outline-light" href="/admin">进入管理面板</a>
+        </div>
+    </nav>
+    <div class="container mt-5">
+        <div class="card shadow-sm">
+            <div class="row g-0">
+                <div class="col-md-5">
+                    {% if product.image_url %}
+                    <img src="{{ url_for('static', filename=product.image_url) }}" class="img-fluid rounded-start" alt="{{ product.name }}">
+                    {% else %}
+                    <svg class="bd-placeholder-img img-fluid rounded-start" width="100%" height="400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: No Image" preserveAspectRatio="xMidYMid slice" focusable="false"><title>Placeholder</title><rect width="100%" height="100%" fill="#868e96"></rect><text x="50%" y="50%" fill="#dee2e6" dy=".3em">暂无图片</text></svg>
+                    {% endif %}
+                </div>
+                <div class="col-md-7">
+                    <div class="card-body p-4">
+                        <h1 class="card-title">{{ product.name }}</h1>
+                        <span class="badge bg-primary fs-6">{{ product.category_name or '未分类' }}</span>
+                        <hr>
+                        <p class="lead fw-bold fs-3">¥{{ "%.2f"|format(product.price) }}</p>
+                        <p class="text-muted">库存：<span class="fw-bold">{{ product.stock }}</span> 件</p>
+                        <p class="card-text mt-4">{{ product.description }}</p>
+                        
+                        <div class="mt-5">
+                            <a href="/" class="btn btn-secondary">返回产品列表</a>
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>

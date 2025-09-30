@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>编辑商品 - 管理面板</title>
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/bootstrap-icons.css') }}" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('admin_index') }}">管理面板</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_index') }}">商品管理</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_categories') }}">分类管理</a>
+                    </li>
+                </ul>
+            </div>
+            <a class="btn btn-outline-light" href="{{ url_for('home') }}">返回前台</a>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">编辑商品：{{ product.name }}</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <form method="POST" enctype="multipart/form-data" action="{{ url_for('admin_edit_product', product_id=product.id) }}">
+                            
+                            <div class="mb-3">
+                                <label for="name" class="form-label">商品名称</label>
+                                <input type="text" class="form-control" id="name" name="name" value="{{ product.name }}" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="description" class="form-label">商品描述</label>
+                                <textarea class="form-control" id="description" name="description" rows="3">{{ product.description }}</textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="category_id" class="form-label">所属分类</label>
+                                <select class="form-select" id="category_id" name="category_id">
+                                    
+                                    <option value="" {% if product.category_id is none %}selected{% endif %}>-- 未分类 --</option>
+                                    
+                                    {% for category in categories %}
+                                    <option value="{{ category.id }}" 
+                                            {% if product.category_id is not none and category.id | string == product.category_id | string %}selected{% endif %}>
+                                        {{ category.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="price" class="form-label">价格 (¥)</label>
+                                    <input type="number" step="0.01" class="form-control" id="price" name="price" value="{{ product.price | round(2) }}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="stock" class="form-label">库存数量</label>
+                                    <input type="number" class="form-control" id="stock" name="stock" value="{{ product.stock }}" required>
+                                </div>
+                            </div>
+
+                            {% if product.image_url %}
+                            <div class="mb-3 p-3 border rounded bg-light">
+                                <label class="form-label d-block fw-bold">当前图片</label>
+                                
+                                <img src="{{ url_for('static', filename=product.image_url) }}" alt="{{ product.name }}" style="max-width: 200px; height: auto; object-fit: cover;">
+                                
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" name="delete_image" id="delete_image" value="1">
+                                    <label class="form-check-label text-danger" for="delete_image">
+                                        <i class="bi bi-trash"></i> 勾选以删除现有图片 (删除后可上传新图片)
+                                    </label>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info" role="alert">当前商品没有设置图片。</div>
+                            {% endif %}
+
+                            <div class="mb-4">
+                                <label for="image" class="form-label">上传新图片 (将替换现有图片)</label>
+                                <input class="form-control" type="file" id="image" name="image" accept="image/*">
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> 保存更改</button>
+                                <a href="{{ url_for('admin_index') }}" class="btn btn-secondary">返回列表</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>
