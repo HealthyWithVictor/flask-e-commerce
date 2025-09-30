@@ -45,3 +45,6 @@ generate_structure.py
 import_catalog.py
 init_db.py
 project_structure.txt
+
+# 忽略包含生产密钥和敏感配置的 .env 文件
+.env 

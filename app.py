@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, g, session, flash
+# 导入 os 用于获取环境变量
 import sqlite3
 import os
 from werkzeug.utils import secure_filename
@@ -7,6 +8,10 @@ import math
 from functools import wraps
 from whitenoise import WhiteNoise
 from flask_talisman import Talisman
+
+# --- 新增：加载 .env 文件中的环境变量 ---
+from dotenv import load_dotenv
+load_dotenv() 
 
 # --- 权限保护装饰器 ---
 def login_required(f):
@@ -25,9 +30,9 @@ app.config['DATABASE'] = 'products.db'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-# 🚨 极重要：设置 Secret Key 来加密 Session。上线时必须改为长、随机的字符串！
-# 请务必替换此处的密钥！
-app.secret_key = b'REPLACE_THIS_WITH_A_LONG_AND_RANDOM_SECRET_KEY_FOR_PRODUCTION' 
+# 🚨 安全修正：从环境变量中加载 SECRET_KEY
+# 如果 SECRET_KEY 未设置，则使用一个默认值（但此默认值不应用于生产环境）
+app.secret_key = os.environ.get('SECRET_KEY', 'development-fallback-key').encode('utf-8')
 
 # 🚨 启用 WhiteNoise 处理静态文件
 # WhiteNoise 将接管静态文件服务，解决 Gunicorn 的问题
