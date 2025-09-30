@@ -38,7 +38,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'development-fallback-key').encode
 # WhiteNoise 将接管静态文件服务，解决 Gunicorn 的问题
 app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='/static/')
 # 注意：我们保留此行以确保应用可访问数据库，但在生产环境中应使用权限设置代替
-app.wsgi_app.add_files('products.db') 
+
 
 # 🚨 启用 Talisman 强制 HTTPS 
 
@@ -263,7 +263,7 @@ def admin_add_product():
         image_url = None
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            image_url = os.path.join('uploads', filename).replace('\\', '/')
             file.save(file_path)
             image_url = os.path.join('uploads', filename)
 
