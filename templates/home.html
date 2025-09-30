@@ -31,29 +31,25 @@
             white-space: pre-wrap; 
             font-size: 0.85em;
             overflow: hidden;
-            flex-grow: 1; /* 允许它填充卡片空间 */
-            max-height: 4.5em; /* 限制显示大约三行，防止卡片过高 */
-            line-height: 1.5;
-        }
-        .product-img {
-            height: 200px; /* 统一图片高度 */
-            object-fit: contain; /* 确保图片完整显示，不被裁剪 */
+            flex-grow: 1;
+            margin-bottom: 0.5rem;
         }
     </style>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">我们的产品</a>
-            <form class="d-flex me-3" role="search">
-                <input class="form-control me-2" type="search" placeholder="搜索产品..." aria-label="Search" disabled>
-            </form>
+            <a class="navbar-brand" href="{{ url_for('home') }}">我们的产品</a>
             <a class="btn btn-outline-light" href="{{ url_for('admin_login') }}">进入管理面板</a>
         </div>
     </nav>
-
     <div class="container mt-5">
-        <h1 class="mb-4">产品列表</h1>
+        <h1 class="text-center mb-4">产品展示</h1>
+
+        <div class="input-group mb-4">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="search-input" class="form-control" placeholder="搜索商品名称或描述..." disabled>
+        </div>
 
         <div class="row mb-4 justify-content-between align-items-start">
             <div class="col-12 col-md-8 mb-3 mb-md-0">
@@ -107,37 +103,39 @@
                 </div>
             </div>
         </div>
-        {% if not products %}
-        <div class="alert alert-info text-center" role="alert">
-            当前分类下没有找到任何商品。
-        </div>
-        {% endif %}
-
-        <div class="row">
+        <div class="row" id="product-list">
             {% for product in products %}
             <div class="col-6 col-md-4 mb-4">
                 <a href="{{ url_for('product_detail', product_id=product.id) }}" class="card-link">
                     <div class="card product-card shadow-sm">
                         {% if product.image_url %}
-                        <img src="{{ url_for('static', filename=product.image_url) }}" class="card-img-top product-img" alt="{{ product.name }}">
+                        <img src="{{ url_for('static', filename=product.image_url) }}" class="card-img-top" alt="{{ product.name }}" style="max-height: 200px; object-fit: contain;">
                         {% else %}
-                        <svg class="bd-placeholder-img card-img-top product-img" width="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: No Image" preserveAspectRatio="xMidYMid slice" focusable="false"><title>Placeholder</title><rect width="100%" height="100%" fill="#868e96"></rect><text x="50%" y="50%" fill="#dee2e6" dy=".3em">暂无图片</text></svg>
+                        <img src="{{ url_for('static', filename='placeholder.jpg') }}" class="card-img-top" alt="无图片" style="max-height: 200px; object-fit: contain;">
                         {% endif %}
-
                         <div class="card-body d-flex flex-column">
-                            <h5 class="card-title text-truncate">{{ product.name }}</h5>
+                            <h5 class="card-title">{{ product.name }}</h5>
                             <p class="card-text text-muted">{{ product.description }}</p>
-                            <p class="lead fw-bold mt-auto">¥{{ "%.2f"|format(product.price) }}</p>
+                            <div class="mt-auto d-flex justify-content-between align-items-center pt-2">
+                                <span class="fw-bold text-success">¥{{ "%.2f"|format(product.price) }}</span>
+                                <span class="badge bg-secondary">{{ product.stock }} 件库存</span>
+                            </div>
                         </div>
                     </div>
                 </a>
             </div>
             {% endfor %}
-        </div>
 
+            {% if not products %}
+            <div class="col-12 text-center py-5">
+                <p class="lead">当前分类下没有找到任何商品。</p>
+            </div>
+            {% endif %}
+        </div>
+        
         {% if total_pages > 1 %}
-        <nav aria-label="Page navigation" class="d-flex justify-content-center">
-            <ul class="pagination">
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
                 <li class="page-item {% if current_page == 1 %}disabled{% endif %}">
                     <a class="page-link" href="{{ url_for('home', page=current_page - 1, category_id=current_category_id, sort=current_sort, order=current_order) }}" aria-label="Previous">
                         <span aria-hidden="true">&laquo;</span>
@@ -161,12 +159,12 @@
 
         <div class="text-center mt-3 mb-5">
             {% if current_category_id %}
-            <p>当前分类下共有 **{{ total_products }}** 件商品。</p>
+            <p>当前分类下共有 {{ total_products }} 件商品。</p>
             {% else %}
-            <p>全部商品共 **{{ total_products }}** 件。</p>
+            <p>全部商品共 {{ total_products }} 件。</p>
             {% endif %}
             {% if total_products > 0 %}
-                <p>当前显示第 **{{ current_page }}** 页，共 **{{ total_pages }}** 页。</p>
+                <p>当前显示第 {{ current_page }} 页，共 {{ total_pages }} 页。</p>
             {% endif %}
         </div>
         </div>

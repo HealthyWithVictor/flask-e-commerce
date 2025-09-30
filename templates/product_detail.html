@@ -6,6 +6,14 @@
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/bootstrap-icons.css') }}" rel="stylesheet">
     
+    <style>
+        /* 确保轮播图中的图片适应容器 */
+        .carousel-item img {
+            height: 400px; /* 设置统一高度 */
+            object-fit: contain; /* 确保图片完整显示 */
+            background-color: #f8f9fa; /* 背景色，如果图片不是全白的 */
+        }
+    </style>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -17,12 +25,40 @@
     <div class="container mt-5">
         <div class="card shadow-sm">
             <div class="row g-0">
-                <div class="col-md-5">
-                    {% if product.image_url %}
-                    <img src="{{ url_for('static', filename=product.image_url) }}" class="img-fluid rounded-start" alt="{{ product.name }}">
-                    {% else %}
-                    <svg class="bd-placeholder-img img-fluid rounded-start" width="100%" height="400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: No Image" preserveAspectRatio="xMidYMid slice" focusable="false"><title>Placeholder</title><rect width="100%" height="100%" fill="#868e96"></rect><text x="50%" y="50%" fill="#dee2e6" dy=".3em">暂无图片</text></svg>
-                    {% endif %}
+                <div class="col-md-5 p-3">
+                    <div id="productCarousel" class="carousel slide" data-bs-ride="carousel">
+                        <div class="carousel-indicators">
+                            {% for image in images %}
+                            <button type="button" data-bs-target="#productCarousel" data-bs-slide-to="{{ loop.index0 }}" 
+                                    class="{% if loop.index0 == 0 %}active{% endif %}" 
+                                    aria-current="{% if loop.index0 == 0 %}true{% else %}false{% endif %}" 
+                                    aria-label="Slide {{ loop.index }}"></button>
+                            {% endfor %}
+                        </div>
+
+                        <div class="carousel-inner rounded-start">
+                            {% if images %}
+                                {% for image in images %}
+                                <div class="carousel-item {% if loop.index0 == 0 %}active{% endif %}">
+                                    <img src="{{ url_for('static', filename=image.image_url) }}" class="d-block w-100 img-fluid" alt="{{ product.name }} Image {{ loop.index }}">
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="carousel-item active">
+                                    <svg class="bd-placeholder-img d-block w-100 img-fluid" height="400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: No Image" preserveAspectRatio="xMidYMid slice" focusable="false"><title>Placeholder</title><rect width="100%" height="100%" fill="#868e96"></rect><text x="50%" y="50%" fill="#dee2e6" dy=".3em">暂无图片</text></svg>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Previous</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Next</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="col-md-7">
                     <div class="card-body p-4">

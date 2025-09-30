@@ -8,8 +8,6 @@ import math
 from functools import wraps
 from whitenoise import WhiteNoise
 from flask_talisman import Talisman
-
-# --- 新增：加载 .env 文件中的环境变量 ---
 from dotenv import load_dotenv
 load_dotenv() 
 
@@ -35,13 +33,10 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.secret_key = os.environ.get('SECRET_KEY', 'development-fallback-key').encode('utf-8')
 
 # 🚨 启用 WhiteNoise 处理静态文件
-# WhiteNoise 将接管静态文件服务，解决 Gunicorn 的问题
 app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='/static/')
-# 注意：我们保留此行以确保应用可访问数据库，但在生产环境中应使用权限设置代替
-
+# 注意：我们已删除了 app.wsgi_app.add_files('products.db') 的危险代码
 
 # 🚨 启用 Talisman 强制 HTTPS 
-
 Talisman(
     app, 
     force_https=True
@@ -71,7 +66,7 @@ def query_db(query, args=(), one=False):
     cur.close()
     return (rv[0] if rv else None) if one else rv
 
-# --- 用户前台路由 ---
+# --- 用户前台路由：首页 ---
 @app.route('/')
 def home():
     # 1. 获取分页参数
@@ -81,12 +76,11 @@ def home():
     
     # 2. 获取分类筛选参数
     category_id = request.args.get('category_id', type=int)
-    
-    # 3. 获取排序参数并进行安全验证 (新增)
-    sort_by = request.args.get('sort', 'id')       # 默认按 id 排序 (最新)
+
+    # 3. 获取排序参数并进行安全验证 (新增排序逻辑)
+    sort_by = request.args.get('sort', 'id')       # 默认按 id 排序
     sort_order = request.args.get('order', 'DESC') # 默认降序
     
-    # 验证排序字段和顺序，防止 SQL 注入
     if sort_by not in ['id', 'name', 'price', 'stock']:
         sort_by = 'id'
     if sort_order not in ['ASC', 'DESC']:
@@ -101,9 +95,18 @@ def home():
         query_args.append(category_id)
 
     # 5. 查询当前页的商品数据 (应用排序和分页)
-    # 注意：此处使用 f-string 插入排序字段和顺序是安全的，因为我们已经在上一步进行了验证
-    products = query_db(f'SELECT * FROM products {query_condition} ORDER BY {sort_by} {sort_order} LIMIT ? OFFSET ?',
-                        query_args + [per_page, offset])
+    # 关键修改：左连接 product_images 表，以获取主图 (is_primary=1) 并将其别名为 image_url
+    products = query_db(f'''
+        SELECT 
+            p.*, 
+            pi.image_url 
+        FROM products p 
+        LEFT JOIN product_images pi 
+            ON p.id = pi.product_id AND pi.is_primary = 1
+        {query_condition} 
+        ORDER BY {sort_by} {sort_order} 
+        LIMIT ? OFFSET ?
+    ''', query_args + [per_page, offset])
 
     # 6. 查询总商品数（用于分页计算）
     total_products_row = query_db(f'SELECT COUNT(id) AS count FROM products {query_condition}',
@@ -116,7 +119,6 @@ def home():
     # 8. 查询所有分类
     categories = query_db('SELECT * FROM categories')
     
-    # 9. 渲染时传递排序参数
     return render_template('home.html', 
                            products=products, 
                            categories=categories,
@@ -124,21 +126,27 @@ def home():
                            total_pages=total_pages,
                            current_category_id=category_id, 
                            total_products=total_products,
-                           current_sort=sort_by,         # 新增：当前排序字段
-                           current_order=sort_order)      # 新增：当前排序顺序
+                           current_sort=sort_by,         
+                           current_order=sort_order)
+
 # --- 详细页面 ---
 @app.route('/product/<int:product_id>')
 def product_detail(product_id):
+    # 1. 查询主产品信息
     product = query_db('SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.id = ?', 
                        [product_id], one=True)
+    
     if product is None:
         return redirect(url_for('home'))
+
+    # 关键修改：查询所有图片，按 is_primary 和 sort_order 排序 (用于轮播)
+    images = query_db('SELECT image_url FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, sort_order ASC', 
+                      [product_id])
         
-    return render_template('product_detail.html', product=product)
+    return render_template('product_detail.html', product=product, images=images)
 
 
-# --- 管理面板：登录/注销 ---
-
+# --- 管理面板：登录/注销 (保持不变) ---
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
@@ -201,10 +209,15 @@ def admin_index():
     offset = (page - 1) * per_page
     
     # 2. 查询当前页的商品数据
+    # 关键修改：左连接 product_images 表，以获取主图 (is_primary=1) 并将其别名为 primary_image_url
     products = query_db(f'''
-        SELECT p.*, c.name as category_name 
+        SELECT 
+            p.*, 
+            c.name as category_name,
+            pi.image_url as primary_image_url
         FROM products p 
         LEFT JOIN categories c ON p.category_id = c.id 
+        LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = 1
         {where_condition} 
         LIMIT ? OFFSET ?
     ''', query_args + [per_page, offset])
@@ -220,7 +233,7 @@ def admin_index():
                            current_category_id=category_id,
                            search_query=search_query)
 
-# 管理分类
+# 管理分类 (admin_categories, admin_delete_category)
 @app.route('/admin/categories', methods=['GET', 'POST'])
 @login_required
 def admin_categories():
@@ -229,38 +242,44 @@ def admin_categories():
         db = get_db()
         db.execute('INSERT INTO categories (name) VALUES (?)', (category_name,))
         db.commit()
+        flash(f'分类 "{category_name}" 添加成功!', 'success')
         return redirect(url_for('admin_categories'))
     
     categories = query_db('SELECT * FROM categories')
     return render_template('admin/categories.html', categories=categories)
 
-# 删除分类
 @app.route('/admin/categories/delete/<int:category_id>')
 @login_required
 def admin_delete_category(category_id):
     db = get_db()
     
-    # 1. 查询并删除属于该分类的所有商品的图片文件 (包含 try...except 保护)
-    products_to_delete = query_db('SELECT image_url FROM products WHERE category_id = ? AND image_url IS NOT NULL', [category_id])
+    # 关键修改：从 product_images 表查询并删除所有相关图片文件
+    images_to_delete = query_db('''
+        SELECT pi.image_url 
+        FROM product_images pi
+        JOIN products p ON pi.product_id = p.id
+        WHERE p.category_id = ?
+    ''', [category_id])
     
-    for product in products_to_delete:
-        image_url = product['image_url']
-        image_path = os.path.join('static', image_url)
+    for image in images_to_delete:
+        image_path = os.path.join('static', image['image_url'])
         if os.path.exists(image_path):
             try:
                 os.remove(image_path)
             except OSError as e:
                 print(f"无法删除图片文件 {image_path}: {e}")
                 
-    # 2. 删除属于该分类的所有商品 
+    # 2. 删除属于该分类的所有商品 (ON DELETE CASCADE 会自动删除 product_images 中的记录)
     db.execute('DELETE FROM products WHERE category_id = ?', (category_id,))
     
     # 3. 删除该分类记录
     db.execute('DELETE FROM categories WHERE id = ?', (category_id,))
     
     db.commit()
+    flash('分类及所属商品已删除!', 'success')
     return redirect(url_for('admin_categories'))
 
+# 添加商品 (admin_add_product)
 @app.route('/admin/add', methods=['GET', 'POST'])
 @login_required
 def admin_add_product():
@@ -272,41 +291,53 @@ def admin_add_product():
         category_id = request.form.get('category_id')
         if category_id == '': category_id = None
         
-        file = request.files.get('image')
-        image_url = None
+        # 关键修改：使用 getlist 获取多张图片
+        files = request.files.getlist('images') 
         
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            
-            # 1. 定义完整的文件系统路径 (用于保存文件)
-            # app.config['UPLOAD_FOLDER'] = 'static/uploads'
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            
-            # 2. 保存文件到文件系统
-            file.save(file_path)
-            
-            # 3. 定义 Web URL 路径 (用于数据库存储和前端展示)
-            # 确保使用正斜杠 '/' 来兼容所有操作系统和 Web URL 规范
-            image_url = os.path.join('uploads', filename).replace('\\', '/') 
-
-        # 提交商品信息到数据库
         db = get_db()
-        db.execute('INSERT INTO products (name, description, price, stock, image_url, category_id) VALUES (?, ?, ?, ?, ?, ?)',
-                   (name, description, price, stock, image_url, category_id))
+        
+        # 1. 插入主产品信息 (image_url 字段传入 None)
+        cursor = db.execute('INSERT INTO products (name, description, price, stock, image_url, category_id) VALUES (?, ?, ?, ?, ?, ?)',
+                           (name, description, price, stock, None, category_id))
+        product_id = cursor.lastrowid # 获取新插入产品的 ID
+        
+        is_primary = 1 # 标记第一张上传的图片为主图
+        
+        # 2. 循环处理所有上传的图片
+        for file in files:
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                
+                # 修复逻辑：先定义路径，后保存
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(file_path)
+                # 路径兼容性修正：使用 replace('\\', '/') 确保在 Web 上路径正确
+                image_url = os.path.join('uploads', filename).replace('\\', '/') 
+
+                # 3. 插入到 product_images 表
+                db.execute('INSERT INTO product_images (product_id, image_url, is_primary) VALUES (?, ?, ?)',
+                           (product_id, image_url, is_primary))
+                is_primary = 0 # 之后的图片都不是主图
+        
         db.commit()
+        flash('商品及图片添加成功！', 'success')
         return redirect(url_for('admin_index'))
     
     categories = query_db('SELECT * FROM categories')
     return render_template('admin/add_product.html', categories=categories)
-# ... (其他代码保持不变，直到 admin_edit_product) ...
 
+# 编辑商品 (admin_edit_product)
 @app.route('/admin/edit/<int:product_id>', methods=['GET', 'POST'])
 @login_required
 def admin_edit_product(product_id):
     product = query_db('SELECT * FROM products WHERE id = ?', [product_id], one=True)
     if not product:
         flash(f'商品ID {product_id} 未找到。', 'danger')
-        return redirect(url_for('admin_index')) # 确保未找到产品时重定向到列表页
+        return redirect(url_for('admin_index')) 
+    
+    # 新增：查询现有图片列表
+    images = query_db('SELECT id, image_url FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, sort_order ASC', 
+                      [product_id])
 
     if request.method == 'POST':
         name = request.form['name']
@@ -316,73 +347,96 @@ def admin_edit_product(product_id):
         category_id = request.form.get('category_id')
         if category_id == '': category_id = None
         
-        file = request.files.get('image')
-        image_url = product['image_url']
-        
-        # 新增: 获取删除图片标志
-        delete_image_flag = request.form.get('delete_image') 
+        # 关键修改：获取新上传的多图
+        new_files = request.files.getlist('images') 
 
-        # --- 优先级 1: 处理上传新文件请求 (覆盖一切) ---
-        if file and allowed_file(file.filename):
-            
-            # 删除旧文件（无论 delete_image_flag 是否设置）
-            if product['image_url']:
-                old_image_path = os.path.join('static', product['image_url'])
-                if os.path.exists(old_image_path):
-                    try:
-                        os.remove(old_image_path)
-                    except OSError as e:
-                        print(f"删除旧图片失败 (新图替换): {old_image_path} - 错误: {e}")
-            
-            # 保存新文件
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
-            # 路径兼容性修正：使用 replace('\\', '/') 确保在 Web 上路径正确
-            image_url = os.path.join('uploads', filename).replace('\\', '/') 
-            
-        # --- 优先级 2: 处理删除现有图片请求 (仅在没有新文件上传时执行) ---
-        elif delete_image_flag and image_url: 
-            # 删除物理文件
-            image_path = os.path.join('static', image_url)
-            if os.path.exists(image_path):
-                try:
-                    os.remove(image_path)
-                except OSError as e:
-                    print(f"删除现有图片失败: {image_path} - 错误: {e}")
-            
-            # 清除数据库记录
-            image_url = None 
-
-        # 提交更新
+        # 1. 提交主产品信息更新
         db = get_db()
+        # 保持 image_url 字段在 UPDATE 语句中，但传入 None，不再通过此字段更新图片
         db.execute('UPDATE products SET name = ?, description = ?, price = ?, stock = ?, image_url = ?, category_id = ? WHERE id = ?',
-                   (name, description, price, stock, image_url, category_id, product_id))
-        db.commit()
+                   (name, description, price, stock, product['image_url'], category_id, product_id))
         
+        # 2. 处理新的多图上传 (追加)
+        if any(f.filename for f in new_files):
+            # 判断是否有现有图片，如果没有，则第一张新图设为主图
+            is_primary = not images 
+
+            for file in new_files:
+                if file and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(file_path)
+                    image_url = os.path.join('uploads', filename).replace('\\', '/')
+                    
+                    # 插入新图片
+                    db.execute('INSERT INTO product_images (product_id, image_url, is_primary) VALUES (?, ?, ?)',
+                               (product_id, image_url, is_primary))
+                    is_primary = 0
+            
+        db.commit()
         flash('商品信息更新成功！', 'success')
         return redirect(url_for('admin_index'))
     
     categories = query_db('SELECT * FROM categories')
-    return render_template('admin/edit_product.html', product=product, categories=categories)
+    return render_template('admin/edit_product.html', product=product, categories=categories, images=images)
 
-# ... (admin_delete_product 及后续代码保持不变) ...
+# 图片删除路由（用于 edit_product.html）
+@app.route('/admin/delete_image/<int:image_id>', methods=['POST'])
+@login_required
+def admin_delete_image(image_id):
+    db = get_db()
+    
+    # 1. 查找图片信息
+    image_record = query_db('SELECT * FROM product_images WHERE id = ?', [image_id], one=True)
+    if not image_record:
+        flash('图片未找到!', 'danger')
+        return redirect(request.referrer or url_for('admin_index'))
+        
+    product_id = image_record['product_id']
+    
+    # 2. 删除物理文件
+    image_path = os.path.join('static', image_record['image_url'])
+    if os.path.exists(image_path):
+        try:
+            os.remove(image_path)
+        except OSError as e:
+            print(f"删除图片失败: {image_path} - 错误: {e}")
+
+    # 3. 删除数据库记录
+    db.execute('DELETE FROM product_images WHERE id = ?', [image_id])
+    db.commit()
+    
+    # 4. 如果删除的是主图，则需要重新指定主图（将 sort_order 最小的设为主图）
+    if image_record['is_primary']:
+        db.execute('UPDATE product_images SET is_primary = 1 WHERE product_id = ? AND sort_order = (SELECT MIN(sort_order) FROM product_images WHERE product_id = ?)', 
+                   [product_id, product_id])
+        db.commit()
+    
+    flash('图片删除成功!', 'success')
+    # 重定向回编辑页面
+    return redirect(url_for('admin_edit_product', product_id=product_id))
+
 
 @app.route('/admin/delete/<int:product_id>')
 @login_required
 def admin_delete_product(product_id):
-    product = query_db('SELECT * FROM products WHERE id = ?', [product_id], one=True)
-    if product and product['image_url']:
-        image_path = os.path.join('static', product['image_url'])
+    db = get_db()
+
+    # 关键修改：删除所有相关图片文件
+    images_to_delete = query_db('SELECT image_url FROM product_images WHERE product_id = ?', [product_id])
+    
+    for image in images_to_delete:
+        image_path = os.path.join('static', image['image_url'])
         if os.path.exists(image_path):
             try:
                 os.remove(image_path)
             except OSError as e:
                 print(f"删除图片失败: {image_path} - 错误: {e}")
-    
-    db = get_db()
+                
+    # 删除商品记录 (ON DELETE CASCADE 会自动删除 product_images 中的记录)
     db.execute('DELETE FROM products WHERE id = ?', [product_id])
     db.commit()
+    flash('商品已删除!', 'success')
     return redirect(url_for('admin_index'))
 
 # --- 运行 Flask 服务器 (仅用于开发/调试) ---
