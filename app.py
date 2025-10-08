@@ -10,6 +10,9 @@ from whitenoise import WhiteNoise
 from flask_talisman import Talisman
 from dotenv import load_dotenv
 import uuid
+import resend 
+from resend.exceptions import ResendError 
+
 load_dotenv() 
 
 # --- 权限保护装饰器 ---
@@ -39,7 +42,15 @@ app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='/static/')
 # 🚨 启用 Talisman 强制 HTTPS 
 Talisman(
     app, 
-    force_https=True
+    force_https=True,              # 关键：设置为 False，因为 Cloudflare 已经处理了 HTTPS
+    content_security_policy={       # 保持其他重要的安全策略
+        'default-src': ["'self'", '*.cloudflare.com'], 
+        'img-src': ["'self'", 'data:'],
+    },
+    # 信任代理头，以便 Talisman 和 Flask 正确识别原始协议和主机
+    # 这对于安全头的生成至关重要
+    content_security_policy_nonce_in=['script-src'], 
+    strict_transport_security=False # 关键：在 Tunnel 场景下，HSTS 应由 Cloudflare 负责
 )
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -121,22 +132,77 @@ def home():
                            total_pages=total_pages,
                            total_products=total_products)
 
-# --- 详细页面 ---
-@app.route('/product/<int:product_id>')
-def product_detail(product_id):
-    # 1. 查询主产品信息
-    product = query_db('SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.id = ?', 
-                       [product_id], one=True)
-    
-    if product is None:
-        return redirect(url_for('home'))
+# --- 邮件配置变量 (请替换为您的实际凭据) ---
+# 🚨 警告：建议使用环境变量来存储敏感信息，这里仅为演示方便
+# ⚠️ 必须是您在 Resend 控制台获取的 API Key！
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', 're_d3eB1rad_P6hcG6sRqqkKL5qLrjA4osYq') 
 
-    # 关键修改：查询所有图片，按 is_primary 和 sort_order 排序 (用于轮播)
-    images = query_db('SELECT image_url FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, sort_order ASC', 
-                      [product_id])
-        
-    return render_template('product_detail.html', product=product, images=images)
+# ✅ 发件人：使用您已验证域名下的任意邮箱，例如 info@friendshippingriver.life
+# ⚠️ 请确保您在 Resend 上验证了 friendshippingriver.life 域名。
+SENDER_EMAIL = 'info@friendshippingriver.life' 
 
+# ✅ 收件人：保持不变，发到您的 Gmail 接收
+RECIPIENT_EMAIL = 'jerrysmith17793@gmail.com' 
+
+# 初始化 Resend 客户端：只需设置 API Key
+resend.api_key = RESEND_API_KEY 
+
+# --- contact 路由：处理表单提交和发送 (使用 Resend) ---
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        # 1. 获取表单数据
+        name = request.form.get('name')
+        email = request.form.get('email')
+        subject = request.form.get('subject')
+        company = request.form.get('company')
+        phone = request.form.get('phone')
+        message_body = request.form.get('message')
+
+        # 2. 构造邮件内容
+        full_subject = f"[网站咨询] {subject or '无主题'} - From: {name}"
+        html_content = f"""
+        <html><body>
+            <h2>收到来自网站的新的咨询：</h2>
+            <p><strong>姓名:</strong> {name}</p>
+            <p><strong>公司:</strong> {company or '未填写'}</p>
+            <p><strong>电话:</strong> {phone or '未填写'}</p>
+            <p><strong>客户邮箱:</strong> {email}</p>
+            <p><strong>主题:</strong> {subject or '无主题'}</p>
+            <hr>
+            <h3>消息正文：</h3>
+            <p>{message_body.replace('\n', '<br>')}</p>
+        </body></html>
+        """
+
+        # 3. 使用 Resend API 发送邮件
+        try:
+            # 发送代码修正：直接调用 resend.Emails.send
+            resend.Emails.send({
+                "from": f"{name} <{SENDER_EMAIL}>", 
+                "to": [RECIPIENT_EMAIL],
+                "subject": full_subject,
+                "html": html_content,
+                "headers": {
+                    "Reply-To": email 
+                }
+            })
+            
+            flash('您的消息已发送成功，我们会尽快与您联系！', 'success')
+            return redirect(url_for('contact'))
+
+        except ResendError as e: # <-- 使用修正后的 ResendError
+            print(f"Resend 邮件发送失败: {e}")
+            flash('邮件发送失败，请检查 Resend 配置（API Key或发件人验证）。', 'danger')
+            return redirect(url_for('contact'))
+            
+        except Exception as e:
+            print(f"邮件发送发生通用错误: {e}")
+            flash('邮件发送失败，请检查网络或服务器设置。', 'danger')
+            return redirect(url_for('contact'))
+            
+    # GET 请求时渲染 contact.html 模板
+    return render_template('contact.html')
 
 # --- 管理面板：登录/注销 (保持不变) ---
 @app.route('/admin/login', methods=['GET', 'POST'])
