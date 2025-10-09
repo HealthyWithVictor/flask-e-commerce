@@ -195,12 +195,19 @@ def contact():
 # --- 详细页面 ---
 @app.route('/product/<int:product_id>')
 def product_detail(product_id):
-    product = query_db('SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.id = ?', 
+    # 1. 查询主产品信息
+    product = query_db('SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.id = ?',
                        [product_id], one=True)
+
     if product is None:
         return redirect(url_for('home'))
-        
-    return render_template('product_detail.html', product=product)
+
+    # 关键修改：查询所有图片，按 is_primary 和 sort_order 排序 (用于轮播)
+    images = query_db('SELECT image_url FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, sort_order ASC',
+                      [product_id])
+
+    return render_template('product_detail.html', product=product, images=images)
+
 
 # --- 管理面板：登录/注销 (保持不变) ---
 @app.route('/admin/login', methods=['GET', 'POST'])
