@@ -16,114 +16,226 @@
         .product-card {
             transition: transform 0.2s ease-in-out;
             height: 100%; /* 确保所有卡片高度一致 */
+            display: flex; /* 启用 Flex 布局 */
+            flex-direction: column; /* 垂直排列内容 */
         }
         .product-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important; /* 悬停阴影更明显 */
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2) !important; /* 悬停阴影更明显 */
         }
         .filter-btn-link.active {
             background-color: #007bff;
             color: #fff;
             border-color: #007bff;
         }
-        /* 调整描述文本的显示，保留换行，并限制高度以保持卡片一致 */
-        .card-text {
-            white-space: pre-wrap; 
-            font-size: 0.85em;
+
+        /* ----------------------- 增强的图片区域和引导 ----------------------- */
+        .card-img-container {
+            position: relative;
+            height: 200px; /* 统一卡片图片高度 */
             overflow: hidden;
-            flex-grow: 1; /* 允许描述文本占据剩余空间 */
-            max-height: 60px; /* 限制描述高度 */
         }
-        .card-body {
+        .card-img-top {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 确保图片覆盖容器 */
+        }
+        
+        /* 详情引导覆盖层 */
+        .view-detail-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 123, 255, 0.7); /* 蓝色半透明 */
+            color: white;
             display: flex;
             flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0; /* 默认隐藏 */
+            transition: opacity 0.3s ease;
+            cursor: pointer;
         }
-        .product-image-cover {
-            width: 100%;
-            height: 200px; /* 统一图片高度 */
-            object-fit: contain; /* 关键：确保图片完整显示，而不是裁剪 */
-            background-color: #f8f9fa;
+
+        /* 悬停时显示引导 */
+        .product-card:hover .view-detail-overlay {
+            opacity: 1;
+        }
+        /* --------------------------------------------------------------------- */
+
+        /* 确保 card-body 占据剩余空间 */
+        .card-body {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* 底部对齐联系按钮 */
+        }
+
+        /* 价格美化 */
+        .product-price {
+            font-size: 1.5rem;
+            color: #dc3545; /* Bootstrap danger color */
+            font-weight: 700;
         }
     </style>
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('home') }}">我们的产品</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item me-2">
-                        <a class="nav-link text-white" href="{{ url_for('contact') }}">联系我们</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="btn btn-outline-light" href="{{ url_for('admin_index') }}">进入管理面板</a>
-                    </li>
-                </ul>
-            </div>
+            <a class="navbar-brand" href="{{ url_for('home') }}">
+                <i class="bi bi-shop me-2"></i>我们的产品中心
+            </a>
+            <!-- 搜索框被移到这里，但保持原状 -->
+            <a class="btn btn-outline-light d-none d-lg-block" href="{{ url_for('admin_index') }}">
+                <i class="bi bi-gear me-1"></i>管理面板
+            </a>
+            <!-- 移动端管理入口 -->
+            <a class="btn btn-outline-light d-lg-none" href="{{ url_for('admin_index') }}">
+                <i class="bi bi-gear"></i>
+            </a>
         </div>
     </nav>
 
     <div class="container mt-5">
-        <h1 class="text-center mb-4">产品列表</h1>
-        
-        <div class="d-flex flex-wrap justify-content-center mb-4">
-            <a href="{{ url_for('home') }}" class="btn btn-outline-primary m-1 {% if not current_category_id %}active{% endif %}">全部</a>
-            {% for category in categories %}
-            <a href="{{ url_for('home', category_id=category.id) }}" class="btn btn-outline-primary m-1 {% if category.id == current_category_id %}active{% endif %}">{{ category.name }}</a>
-            {% endfor %}
+        <!-- 搜索栏区域 -->
+        <div class="row justify-content-center mb-4">
+            <div class="col-lg-8 col-md-10">
+                <form action="{{ url_for('home') }}" method="get" class="input-group input-group-lg shadow-sm">
+                    <!-- 隐藏字段，用于在搜索时保留当前分类 -->
+                    {% if current_category_id %}
+                    <input type="hidden" name="category_id" value="{{ current_category_id }}">
+                    {% endif %}
+                    <input type="text" class="form-control" name="search_query" placeholder="输入商品名称关键词搜索..." aria-label="搜索商品" 
+                           value="{{ search_query if search_query else '' }}">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-search me-1"></i> 搜索
+                    </button>
+                    <!-- 如果有搜索关键词，显示重置按钮 -->
+                    {% if search_query %}
+                    <a href="{{ url_for('home', category_id=current_category_id) }}" class="btn btn-outline-secondary" title="清除搜索">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                    {% endif %}
+                </form>
+            </div>
         </div>
         
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        <h2 class="text-center mb-4 border-bottom pb-2">
+            {% if search_query %}
+                搜索结果: "{{ search_query }}" 
+            {% elif current_category_id %}
+                {{ categories|selectattr('id', '==', current_category_id)|first|attr('name') or '所有' }} 分类商品
+            {% else %}
+                精选商品一览
+            {% endif %}
+        </h2>
+
+        <!-- 分类筛选区域 -->
+        <div class="d-flex justify-content-center flex-wrap mb-5">
+            <a href="{{ url_for('home', search_query=search_query) }}" 
+               class="btn btn-outline-primary m-1 {% if not current_category_id %}active{% endif %}">
+                全部商品
+            </a>
+            {% for category in categories %}
+            <a href="{{ url_for('home', category_id=category.id, search_query=search_query) }}" 
+               class="btn btn-outline-primary m-1 {% if category.id == current_category_id %}active{% endif %}">
+                {{ category.name }}
+            </a>
+            {% endfor %}
+        </div>
+
+        <!-- 商品列表 -->
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-3 g-4">
+            {% if products %}
             {% for product in products %}
             <div class="col">
-                <a href="{{ url_for('product_detail', product_id=product.id) }}" class="card-link">
-                    <div class="card product-card shadow-sm">
-                        {% if product.primary_image_url %}
-                        <img src="{{ url_for('static', filename=product.primary_image_url) }}" class="card-img-top product-image-cover" alt="{{ product.name }}">
-                        {% else %}
-                        <svg class="bd-placeholder-img card-img-top product-image-cover" width="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: No Image" preserveAspectRatio="xMidYMid slice" focusable="false"><title>Placeholder</title><rect width="100%" height="100%" fill="#868e96"></rect><text x="50%" y="50%" fill="#dee2e6" dy=".3em">暂无图片</text></svg>
-                        {% endif %}
-                        
-                        <div class="card-body">
-                            <h5 class="card-title">{{ product.name }}</h5>
-                            <h6 class="text-danger fw-bold">¥{{ "%.2f"|format(product.price) }}</h6>
-                            <p class="card-text text-muted">{{ product.description }}</p>
-                            <p class="text-end mt-auto mb-0"><small class="text-muted">{{ product.category_name or '未分类' }}</small></p>
+                <div class="card product-card h-100 border-0 shadow-sm">
+                    
+                    <!-- 图片容器和人性化引导 -->
+                    <a href="{{ url_for('product_detail', product_id=product.id) }}" class="card-link" title="点击查看详情">
+                        <div class="card-img-container">
+                            <!-- 商品图片或占位符 -->
+                            {% if product.primary_image_url %}
+                            <img src="{{ url_for('static', filename=product.primary_image_url) }}" class="card-img-top" alt="{{ product.name }}">
+                            {% else %}
+                            <svg class="card-img-top" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: No Image" preserveAspectRatio="xMidYMid slice" focusable="false"><title>Placeholder</title><rect width="100%" height="100%" fill="#adb5bd"></rect><text x="50%" y="50%" fill="#e9ecef" dy=".3em">暂无图片</text></svg>
+                            {% endif %}
+                            <!-- 悬停引导覆盖层 -->
+                            <div class="view-detail-overlay">
+                                <i class="bi bi-zoom-in fs-2 mb-2"></i>
+                                <span class="fw-bold">点击查看详情</span>
+                            </div>
+                        </div>
+                    </a>
+                    
+                    <div class="card-body">
+                        <!-- 商品名称和分类 -->
+                        <div>
+                            <span class="badge bg-secondary mb-2">{{ product.category_name or '未分类' }}</span>
+                            <h5 class="card-title text-truncate">{{ product.name }}</h5>
+                        </div>
+
+                        <!-- 价格和操作按钮 -->
+                        <div class="mt-3">
+                            <p class="product-price mb-2">¥{{ "%.2f"|format(product.price) }}</p>
+
+                            <div class="d-flex justify-content-between align-items-center">
+                                <!-- 访问详情页按钮（主要操作） -->
+                                <a href="{{ url_for('product_detail', product_id=product.id) }}" class="btn btn-primary btn-sm flex-grow-1 me-2">
+                                    <i class="bi bi-bag-check me-1"></i> 立即购买/询价
+                                </a>
+                                
+                                <!-- 跳转到联系页面（次要操作/人性化提示） -->
+                                <a href="{{ url_for('contact') }}" class="btn btn-outline-info btn-sm" title="联系我们咨询">
+                                    <i class="bi bi-chat-dots-fill"></i> 咨询
+                                </a>
+                            </div>
                         </div>
                     </div>
-                </a>
+                </div>
             </div>
             {% endfor %}
-            
-            {% if not products %}
-            <div class="col-12 text-center mt-5">
-                <div class="alert alert-warning" role="alert">
-                    <i class="bi bi-info-circle"></i> 当前分类下没有找到任何商品。
-                </div>
+            {% else %}
+            <!-- 空状态提示 -->
+            <div class="col-12 text-center my-5">
+                <i class="bi bi-box-seam-fill text-muted" style="font-size: 4rem;"></i>
+                <p class="lead mt-3 text-muted">
+                    抱歉，当前条件下没有找到任何商品。
+                    {% if search_query %}
+                    <br>请尝试修改关键词或
+                    <a href="{{ url_for('home', category_id=current_category_id) }}" class="text-primary fw-bold">清除搜索</a>。
+                    {% else %}
+                    <br>请尝试浏览其他分类。
+                    {% endif %}
+                </p>
             </div>
             {% endif %}
         </div>
-        
+
+        <!-- 分页导航 -->
         {% if total_pages > 1 %}
-        <nav aria-label="Page navigation" class="mt-5">
-            <ul class="pagination justify-content-center">
+        <nav aria-label="商品分页" class="my-5">
+            <ul class="pagination justify-content-center shadow-sm">
+                <!-- 上一页 -->
                 <li class="page-item {% if current_page == 1 %}disabled{% endif %}">
-                    <a class="page-link" href="{{ url_for('home', page=current_page - 1, category_id=current_category_id) }}" aria-label="Previous">
+                    <a class="page-link" href="{{ url_for('home', page=current_page - 1, category_id=current_category_id, search_query=search_query) }}" aria-label="Previous">
                         <span aria-hidden="true">&laquo;</span>
                     </a>
                 </li>
                 
+                <!-- 页码循环 -->
                 {% for p in range(1, total_pages + 1) %}
                 <li class="page-item {% if p == current_page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('home', page=p, category_id=current_category_id) }}">{{ p }}</a>
+                    <a class="page-link" href="{{ url_for('home', page=p, category_id=current_category_id, search_query=search_query) }}">{{ p }}</a>
                 </li>
                 {% endfor %}
 
+                <!-- 下一页 -->
                 <li class="page-item {% if current_page == total_pages %}disabled{% endif %}">
-                    <a class="page-link" href="{{ url_for('home', page=current_page + 1, category_id=current_category_id) }}" aria-label="Next">
+                    <a class="page-link" href="{{ url_for('home', page=current_page + 1, category_id=current_category_id, search_query=search_query) }}" aria-label="Next">
                         <span aria-hidden="true">&raquo;</span>
                     </a>
                 </li>
@@ -132,14 +244,16 @@
         {% endif %}
 
         <div class="text-center mt-3 mb-5">
-            {% if current_category_id %}
-            <p>当前分类下共有 **{{ total_products }}** 件商品。</p>
-            {% else %}
-            <p>全部商品共 **{{ total_products }}** 件。</p>
-            {% endif %}
-            {% if total_products > 0 %}
-                <p>当前显示第 {{ current_page }} 页，共 {{ total_pages }} 页。</p>
-            {% endif %}
+            <p>
+                {% if search_query %}
+                搜索到 **{{ total_products }}** 件商品。
+                {% else %}
+                全部商品共 **{{ total_products }}** 件。
+                {% endif %}
+                {% if total_products > 0 %}
+                当前显示第 **{{ current_page }}** 页，共 **{{ total_pages }}** 页。
+                {% endif %}
+            </p>
         </div>
         </div>
 

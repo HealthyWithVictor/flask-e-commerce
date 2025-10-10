@@ -70,9 +70,10 @@ def query_db(query, args=(), one=False):
 
 @app.route('/')
 def home():
-    """前台首页：展示所有商品，支持分类筛选和分页。"""
+    """前台首页：展示所有商品，支持分类筛选、分页和搜索。"""
     page = request.args.get('page', 1, type=int)
     category_id = request.args.get('category_id', type=int)
+    search_query = request.args.get('search_query', '').strip() # 1. 接收搜索关键词
     per_page = 9 # 每页显示 9 个商品
     
     # 1. 构建查询条件
@@ -82,19 +83,23 @@ def home():
     if category_id:
         where_clauses.append('p.category_id = ?')
         params.append(category_id)
+
+    # 2. 添加搜索条件：模糊匹配商品名称
+    if search_query:
+        where_clauses.append('p.name LIKE ?')
+        params.append(f'%{search_query}%')
     
     where_sql = 'WHERE ' + ' AND '.join(where_clauses) if where_clauses else ''
 
-    # 2. 查询总数 (用于分页)
+    # 3. 查询总数 (用于分页)
     count_sql = f'SELECT COUNT(p.id) FROM products p {where_sql}'
     total_products = query_db(count_sql, params, one=True)['COUNT(p.id)']
     total_pages = math.ceil(total_products / per_page)
     
-    # 3. 计算分页偏移量
+    # 4. 计算分页偏移量
     offset = (page - 1) * per_page
     
-    # 4. 核心查询：通过子查询获取主图 URL
-    # SELECT 的第一个字段 now 替换了之前的 p.image_url 
+    # 5. 核心查询：通过子查询获取主图 URL
     products_sql = f"""
         SELECT 
             p.*, 
@@ -116,9 +121,11 @@ def home():
                            products=products, 
                            categories=categories, 
                            current_category_id=category_id,
+                           search_query=search_query, # 3. 将搜索关键词传回前端用于回显
                            current_page=page, 
                            total_pages=total_pages,
                            total_products=total_products)
+
 
 # --- 邮件配置变量 (请替换为您的实际凭据) ---
 # 🚨 警告：建议使用环境变量来存储敏感信息，这里仅为演示方便
