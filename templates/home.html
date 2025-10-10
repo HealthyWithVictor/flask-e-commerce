@@ -82,20 +82,23 @@
     </style>
 </head>
 <body class="bg-light">
-    <!-- 导航栏 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <!-- 导航栏 -->  
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('home') }}">
-                <i class="bi bi-shop me-2"></i>我们的产品中心
-            </a>
-            <!-- 搜索框被移到这里，但保持原状 -->
-            <a class="btn btn-outline-light d-none d-lg-block" href="{{ url_for('admin_index') }}">
-                <i class="bi bi-gear me-1"></i>管理面板
-            </a>
-            <!-- 移动端管理入口 -->
-            <a class="btn btn-outline-light d-lg-none" href="{{ url_for('admin_index') }}">
-                <i class="bi bi-gear"></i>
-            </a>
+            <a class="navbar-brand" href="{{ url_for('home') }}"><i class="bi bi-shop me-2"></i>我们的产品</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item me-2">
+                        <a class="nav-link text-white" href="{{ url_for('contact') }}"><i class="bi bi-chat-dots-fill"></i>联系我们</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="btn btn-outline-light" href="{{ url_for('admin_index') }}"><i class="bi bi-gear me-1"></i>管理面板</a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 
@@ -185,7 +188,7 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <!-- 访问详情页按钮（主要操作） -->
                                 <a href="{{ url_for('product_detail', product_id=product.id) }}" class="btn btn-primary btn-sm flex-grow-1 me-2">
-                                    <i class="bi bi-bag-check me-1"></i> 立即购买/询价
+                                    <i class="bi bi-bag-check me-1"></i> 询价
                                 </a>
                                 
                                 <!-- 跳转到联系页面（次要操作/人性化提示） -->

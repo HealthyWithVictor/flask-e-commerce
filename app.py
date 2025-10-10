@@ -12,6 +12,9 @@ from dotenv import load_dotenv
 import uuid
 import resend 
 from resend.exceptions import ResendError 
+# 修复 nl2br 依赖：导入 markupsafe.Markup
+from markupsafe import Markup 
+
 
 load_dotenv() 
 
@@ -39,11 +42,27 @@ app.secret_key = os.environ.get('SECRET_KEY', 'development-fallback-key').encode
 # 🚨 启用 WhiteNoise 处理静态文件
 app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='/static/')
 
-
-
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# --- 自定义 nl2br 过滤器 (彻底解决 Import 错误) ---
+def nl2br_filter(s):
+    """
+    将字符串中的所有换行符 (\n) 替换为 HTML <br> 标签。
+    并使用 Markup 标记为安全，防止 <br> 标签被自动转义。
+    """
+    if s is None:
+        return ""
+    # 将输入转换为字符串
+    s = str(s)
+    # 核心替换：将 \n 换行符替换为 <br> 标签
+    s = s.replace('\n', '<br>')
+    # 标记为 Markup，以避免 Jinja2 自动转义 <br> 标签 
+    return Markup(s)
+
+# 在应用创建后注册自定义过滤器
+app.jinja_env.filters['nl2br'] = nl2br_filter
 
 # --- 数据库辅助函数（保持不变） ---
 def get_db():
@@ -565,9 +584,12 @@ Talisman(
     strict_transport_security=False # 关键：在 Tunnel 场景下，HSTS 应由 Cloudflare 负责
 )
 
+
+
 # --- 运行 Flask 服务器 (仅用于开发/调试) ---
 if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
     # 注意：生产环境请使用 Gunicorn 启动 application
     app.run(debug=True)
+
