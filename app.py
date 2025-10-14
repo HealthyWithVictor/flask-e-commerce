@@ -31,7 +31,7 @@ def login_required(f):
 
 # --- Flask 应用初始化与配置 ---
 app = Flask(__name__)
-app.config['DATABASE'] = 'products.db'
+app.config['DATABASE'] = os.environ.get('DATABASE', 'products.db')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
@@ -93,10 +93,10 @@ def home():
     page = request.args.get('page', 1, type=int)
     category_id = request.args.get('category_id', type=int)
     search_query = request.args.get('search_query', '').strip() # 1. 接收搜索关键词
-    per_page = 9 # 每页显示 9 个商品
+    per_page = 12 # 每页显示 9 个商品
     
     # 1. 构建查询条件
-    where_clauses = ['p.stock > 0'] # 默认只显示有库存的商品
+    where_clauses = ['p.stock >= 0'] # 默认只显示有库存的商品
     params = []
     
     if category_id:
