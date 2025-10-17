@@ -8,35 +8,7 @@
     <link href="{{ url_for('static', filename='css/bootstrap-icons.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
     
-    <style>
-        /* 强制极小尺寸 (18px x 18px) */
-        .thumbnail-img {
-            /* 强制尺寸，防止被其他样式覆盖 */
-            width: 18px !important; 
-            height: 18px !important; 
-            max-width: 18px !important; 
-            max-height: 18px !important; 
-            object-fit: contain; 
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 1px;
-            vertical-align: middle; 
-        }
-        
-        /* 图片列定宽居中 */
-        .table-img-col {
-            width: 50px; 
-            text-align: center;
-            white-space: nowrap; 
-        }
 
-        /* 操作列定宽，确保按钮并排显示 */
-        .table-actions-col {
-            width: 150px; 
-            text-align: center;
-            white-space: nowrap; 
-        }
-    </style>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">

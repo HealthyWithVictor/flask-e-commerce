@@ -1,60 +1,66 @@
 import os
 import sys
 
-def generate_tree(startpath, output_filename='directory_structure.txt'):
-    """
-    递归地遍历目录结构并将其保存到文件中。
-    """
-    
-    # 获取要遍历的根目录，如果未提供则使用当前目录
-    root_dir = startpath if startpath else os.getcwd()
+# 定义输出文件名
+OUTPUT_FILENAME = "project_directory_tree.txt"
 
-    if not os.path.isdir(root_dir):
-        print(f"错误：目录 '{root_dir}' 不存在。", file=sys.stderr)
+def print_directory_tree(startpath, exclude_dirs, output_file):
+    """
+    Prints the directory tree starting from startpath to the specified output_file,
+    excluding directories specified in exclude_dirs.
+    """
+    # 集合用于更快地查找排除目录
+    excluded = set(exclude_dirs)
+    
+    if not os.path.isdir(startpath):
+        output_file.write(f"Error: '{startpath}' is not a valid directory.\n")
         return
 
-    # 要排除的目录名称（例如，如果您不想看到 .git 文件夹）
-    # 在 Python 脚本中，直接在 os.walk 中跳过它们更高效
-    EXCLUDE_DIRS = ['.git', '__pycache__', 'node_modules']
-    
-    print(f"正在生成 '{root_dir}' 的目录结构到 {output_filename} ...")
+    output_file.write(f"Project Tree for: {startpath}\n")
+    output_file.write("-" * 30 + "\n")
+    output_file.write(f"{startpath}\n")
 
-    with open(output_filename, 'w', encoding='utf-8') as f:
-        f.write(f"项目目录结构: {root_dir}\n")
-        f.write("-" * 30 + "\n")
+    # os.walk 遍历目录树
+    for root, dirs, files in os.walk(startpath):
         
-        # os.walk(top, topdown=True, onerror=None, followlinks=False)
-        for root, dirs, files in os.walk(root_dir):
+        # 1. 剪枝：原地修改 `dirs` 列表，防止 os.walk 深入到排除的目录
+        dirs[:] = [d for d in dirs if d not in excluded]
+
+        # 计算当前目录相对于起始路径的深度
+        # 替换 startpath 为空，然后计算路径分隔符的数量
+        level = root.replace(startpath, '').count(os.sep)
+        
+        # 跳过根目录，因为它已经被打印过了
+        if root == startpath:
+            continue
             
-            # 使用列表切片来修改 dirs，以便 os.walk 知道要跳过哪些目录
-            # 这比在循环内检查更高效
-            dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
+        # 确定当前级别的缩进
+        # '|   ' 用于前一级别的缩进，'|-- ' 用于当前条目
+        indent = '|   ' * level + '|-- '
 
-            # 计算当前深度和缩进
-            # 如果 root_dir 是 "."，则 level 只是路径分隔符的计数
-            # 如果是绝对路径，您可能需要更复杂的计算
-            level = root.replace(root_dir, '').count(os.sep)
-            indent = ' ' * 4 * (level)
+        # 2. 写入当前目录名
+        # os.path.basename(root) 获取路径的最后一个部分
+        output_file.write(f"{indent}{os.path.basename(root)}/\n")
 
-            # 写入当前目录
-            # 仅在不是根目录本身的情况下打印目录名（因为我们在开头已经打印了）
-            if root != root_dir:
-                f.write(f'{indent}**{os.path.basename(root)}/**\n')
-            else:
-                f.write(f'{root_dir}/\n')
-            
-            # 写入文件
-            subindent = ' ' * 4 * (level + 1)
-            for file in files:
-                # 排除隐藏文件
-                if not file.startswith('.'):
-                    f.write(f'{subindent}{file}\n')
-
-    print(f"完成。目录结构已保存到 {output_filename}")
-
+        # 3. 写入文件
+        # 文件的缩进比目录深一级
+        file_indent = '|   ' * (level + 1) + '|-- '
+        for f in files:
+            output_file.write(f"{file_indent}{f}\n")
 
 if __name__ == "__main__":
-    # 允许通过命令行参数指定目录
-    # python generate_tree.py /path/to/your/project
-    target_path = sys.argv[1] if len(sys.argv) > 1 else "."
-    generate_tree(target_path)
+    # 定义要排除的目录列表
+    # 'venv' 是 Flask/Python 项目的关键排除项
+    EXCLUDE_DIRS = ['venv', '.git', '__pycache__', '.pytest_cache']
+    
+    # 将当前目录 ('.') 作为起始路径
+    start_directory = '.'
+    
+    # 使用 `with open(...)` 确保文件在操作完成后会被正确关闭
+    try:
+        with open(OUTPUT_FILENAME, 'w', encoding='utf-8') as f:
+            print(f"Generating directory tree and saving to: {OUTPUT_FILENAME}")
+            print_directory_tree(start_directory, EXCLUDE_DIRS, f)
+            print("Done!")
+    except Exception as e:
+        print(f"An error occurred: {e}")

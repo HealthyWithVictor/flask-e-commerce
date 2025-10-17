@@ -7,43 +7,7 @@
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/bootstrap-icons.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
-    <style>
-        /* 1. 轮播图/图片区域美化 */
-        .carousel-item img {
-            height: 400px; /* 统一轮播图高度 */
-            object-fit: contain; /* 确保图片完整显示 */
-            background-color: #f8f9fa; 
-            border-radius: 5px;
-        }
-        #productCarousel {
-            /* 增加轮播图的视觉质感 */
-            border: 1px solid #ddd; 
-            border-radius: 8px; /* 柔和的圆角 */
-            overflow: hidden; /* 确保内容在圆角内 */
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* 柔和阴影 */
-        }
 
-        /* 2. 价格强调样式 */
-        .product-price {
-            color: #dc3545; /* 醒目的红色 */
-            font-size: 2.5rem; /* 更大的字号 */
-            font-weight: 700;
-        }
-
-        /* 3. 解决产品描述分行问题 (关键) */
-        .product-description-content {
-            /* 移除 pre-wrap，因为 nl2br 会插入 <br> 标签，我们只需控制行高 */
-            /* white-space: pre-wrap; */ 
-            line-height: 1.8; /* 增加行高，提升可读性 */
-            color: #495057;
-            font-size: 1rem;
-        }
-        
-        /* 卡片整体阴影和圆角 */
-        .card {
-            border-radius: 12px;
-        }
-    </style>
 </head>
 <body class="bg-light">
     <!-- 导航栏 -->
