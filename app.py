@@ -81,7 +81,9 @@ def close_connection(exception):
 def query_db(query, args=(), one=False):
     cur = get_db().execute(query, args)
     rv = cur.fetchall()
-    cur.close()
+    # 关键修正：移除 cur.close()，游标应该在请求结束时由 Python 自动管理/垃圾回收。
+    # 提前关闭游标可能导致同一请求中的后续数据库操作失败。
+    # cur.close() 
     return (rv[0] if rv else None) if one else rv
 
 # --- 用户前台路由：首页 ---
@@ -326,15 +328,62 @@ def admin_index():
 @login_required
 def admin_categories():
     if request.method == 'POST':
-        category_name = request.form['name']
+        # 1. 使用 .get() 安全地获取表单数据，并去除首尾空格
+        category_name = request.form.get('name', '').strip()
+        
+        # 2. 增加后端验证，防止空名称提交
+        if not category_name:
+            flash('分类名称不能为空。', 'danger')
+            return redirect(url_for('admin_categories'))
+            
+        # 3. (可选但建议) 检查新名称是否已存在
+        existing_category = query_db('SELECT id FROM categories WHERE name = ?', [category_name], one=True)
+        if existing_category:
+            flash(f'分类名称 "{category_name}" 已存在，请使用其他名称。', 'warning')
+            return redirect(url_for('admin_categories'))
+
         db = get_db()
         db.execute('INSERT INTO categories (name) VALUES (?)', (category_name,))
         db.commit()
         flash(f'分类 "{category_name}" 添加成功!', 'success')
         return redirect(url_for('admin_categories'))
     
-    categories = query_db('SELECT * FROM categories')
+    # 在GET请求时，按名称排序查询
+    categories = query_db('SELECT * FROM categories ORDER BY name')
     return render_template('admin/categories.html', categories=categories)
+
+# --- 新功能：处理分类名称修改的路由 ---
+@app.route('/admin/categories/edit/<int:category_id>', methods=['POST'])
+@login_required
+def admin_edit_category(category_id):
+    new_name = request.form.get('new_category_name', '').strip()
+    
+    if not new_name:
+        flash('分类名称不能为空。', 'danger')
+        return redirect(url_for('admin_categories'))
+        
+    # 检查新名称是否已存在 (可选，但建议)
+    existing_category = query_db('SELECT id FROM categories WHERE name = ? AND id != ?', [new_name, category_id], one=True)
+    if existing_category:
+        flash(f'分类名称 "{new_name}" 已存在，请使用其他名称。', 'warning')
+        return redirect(url_for('admin_categories'))
+
+    db = get_db()
+    try:
+        # 使用显式游标和错误处理，使数据库操作更健壮
+        cursor = db.cursor()
+        cursor.execute('UPDATE categories SET name = ? WHERE id = ?', (new_name, category_id))
+        db.commit()
+        cursor.close()
+        flash('分类名称更新成功！', 'success')
+    except sqlite3.Error as e:
+        # 如果发生任何数据库错误，回滚事务并报告错误
+        db.rollback()
+        error_message = f'数据库更新失败: {e}'
+        print(f"DATABASE ERROR in admin_edit_category: {e}") # 在服务器控制台打印详细错误
+        flash(error_message, 'danger')
+
+    return redirect(url_for('admin_categories'))
 
 @app.route('/admin/categories/delete/<int:category_id>')
 @login_required
@@ -415,7 +464,6 @@ def admin_add_product():
     return render_template('admin/add_product.html', categories=categories)
 
 # 编辑商品 (admin_edit_product)
-# 找到 app.py 中的 @app.route('/admin/edit/<int:product_id>', methods=['GET', 'POST']) 函数，并替换为以下内容：
 # 找到 app.py 中的 @app.route('/admin/edit/<int:product_id>', methods=['GET', 'POST']) 函数，并替换为以下内容：
 @app.route('/admin/edit/<int:product_id>', methods=['GET', 'POST'])
 @login_required
@@ -592,4 +640,3 @@ if __name__ == '__main__':
         os.makedirs(app.config['UPLOAD_FOLDER'])
     # 注意：生产环境请使用 Gunicorn 启动 application
     app.run(debug=True)
-
