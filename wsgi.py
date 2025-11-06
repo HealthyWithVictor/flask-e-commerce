@@ -1,7 +1,7 @@
-import sys
-# 假设您的 app.py 文件在项目根目录
-from app import app as application
+from app import create_app
+import os
 
-if __name__ == "__main__":
-    # Gunicorn 会调用 application，但如果直接运行这个文件可以用于本地测试
-    application.run()
+# Gunicorn/uWSGI 会查找名为 'application' 的可调用对象
+# 我们从环境变量加载生产配置
+config_name = os.environ.get('FLASK_CONFIG', 'production')
+application = create_app(config_name)

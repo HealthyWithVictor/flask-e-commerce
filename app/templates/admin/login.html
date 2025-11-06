@@ -32,7 +32,7 @@
                 {% endif %}
                 {% endwith %}
 
-                <form method="POST" action="{{ url_for('admin_login') }}">
+                <form method="POST" action="{{ url_for('admin.admin_login') }}">
                     <div class="mb-3">
                         <label for="username" class="form-label">用户名</label>
                         <input type="text" class="form-control" id="username" name="username" required>
@@ -45,7 +45,7 @@
                 </form>
             </div>
             <div class="card-footer text-center">
-                <a href="{{ url_for('home') }}" class="btn btn-sm btn-link">返回前台首页</a>
+                <a href="{{ url_for('main.home') }}" class="btn btn-sm btn-link">返回前台首页</a>
             </div>
         </div>
     </div>

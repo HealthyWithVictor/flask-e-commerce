@@ -9,17 +9,17 @@
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('home') }}">我们的产品</a>
+            <a class="navbar-brand" href="{{ url_for('main.home') }}">我们的产品</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item me-2">
-                        <a class="nav-link text-white active" aria-current="page" href="{{ url_for('contact') }}">联系我们</a>
+                        <a class="nav-link text-white active" aria-current="page" href="{{ url_for('main.contact') }}">联系我们</a>
                     </li>
                     <li class="nav-item">
-                        <a class="btn btn-outline-light" href="{{ url_for('admin_index') }}">进入管理面板</a>
+                        <a class="btn btn-outline-light" href="{{ url_for('admin.admin_index') }}">进入管理面板</a>
                     </li>
                 </ul>
             </div>
@@ -58,7 +58,7 @@
                             <div class="col-lg-7 p-4">
                                 <h4 class="text-secondary mb-4 text-center">发送邮件给我们</h4>
                                 
-                                <form method="POST" action="{{ url_for('contact') }}"> 
+                                <form method="POST" action="{{ url_for('main.contact') }}"> 
                                     <div class="mb-3">
                                         <input type="text" class="form-control" name="name" placeholder="Name*" required>
                                     </div>

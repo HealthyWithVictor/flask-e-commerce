@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>产品列表 - {{ current_category_id or '全部' }}</title>
+    <!-- 静态文件引用检查 -->
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/bootstrap-icons.css') }}" rel="stylesheet">
+    <!-- 所有的自定义样式都在这里 -->
+    <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
+    <!-- 移除了内联 <style> 块 -->
+</head>
+<body>
+    
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('main.home') }}"><i class="bi bi-shop me-2"></i>产品展示系统</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if not current_category_id %}active{% endif %}" aria-current="page" href="{{ url_for('main.home') }}">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.contact') }}">联系我们</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <!-- 管理员入口 -->
+                    <li class="nav-item">
+                        <a class="nav-link btn btn-sm btn-outline-light px-3" href="{{ url_for('admin.admin_index') }}"><i class="bi bi-shield-lock-fill me-1"></i>管理后台</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 消息闪现 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="container my-5">
+        <h1 class="mb-4 text-center fw-light">产品目录</h1>
+        
+        <!-- 搜索与筛选 -->
+        <div class="row mb-4">
+            <!-- 分类筛选区域 -->
+            <div class="col-md-3">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light fw-bold"><i class="bi bi-tags-fill me-2"></i>产品分类</div>
+                    <ul class="list-group list-group-flush category-list">
+                        <a href="{{ url_for('main.home', search_query=search_query) }}" class="list-group-item list-group-item-action {% if not current_category_id %}active{% endif %}">全部产品</a>
+                        {% for category in categories %}
+                            {% set is_active = current_category_id == category.id %}
+                            <a href="{{ url_for('main.home', category_id=category.id, search_query=search_query) }}" 
+                               class="list-group-item list-group-item-action {% if is_active %}active{% endif %}">
+                                {{ category.name }}
+                            </a>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 搜索结果和搜索栏 -->
+            <div class="col-md-9">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <p class="mb-0 text-muted">
+                        {% if current_category_id %}
+                            当前分类: <strong>{{ categories | selectattr('id', '==', current_category_id) | map(attribute='name') | first or '未知' }}</strong>
+                        {% else %}
+                            已显示全部 <strong>{{ total_products }}</strong> 个产品
+                        {% endif %}
+                        {% if search_query %}
+                            ，搜索结果: <strong>"{{ search_query }}"</strong>
+                        {% endif %}
+                    </p>
+                    
+                    <form class="d-flex" method="GET" action="{{ url_for('main.home') }}">
+                        <input type="hidden" name="category_id" value="{{ current_category_id or '' }}">
+                        <input class="form-control me-2" type="search" placeholder="搜索产品名称..." aria-label="Search" name="search_query" value="{{ search_query }}">
+                        <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search"></i></button>
+                    </form>
+                </div>
+                
+                <!-- 产品列表 -->
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
+                    {% for product in products %}
+                    {% set image_url = product.primary_image_url | default('uploads/default.png', true) %}
+                    <div class="col">
+                        <div class="card product-card h-100 shadow-sm">
+                            <!-- 图片引用方式已在上一轮优化 -->
+                            <img src="{{ url_for('static', filename=image_url) }}" 
+                                 class="card-img-top" 
+                                 alt="{{ product.name }}" 
+                                 onerror="this.onerror=null;this.src='{{ url_for('static', filename='uploads/placeholder.png') }}';">
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title text-truncate">{{ product.name }}</h5>
+                                <p class="card-text text-muted small mb-2 text-truncate">{{ product.category_name }}</p>
+                                <p class="card-text fw-bold text-success fs-5 mb-3">¥ {{ product.price|round(2) }}</p>
+                                <div class="mt-auto">
+                                    <a href="{{ url_for('main.product_detail', product_id=product.id) }}" class="btn btn-primary w-100">查看详情</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12">
+                        <div class="alert alert-info text-center" role="alert">
+                            <i class="bi bi-info-circle me-2"></i>未找到任何产品。
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- 分页 -->
+                {% if total_pages > 1 %}
+                <nav class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% set url_params = {'category_id': current_category_id, 'search_query': search_query} %}
+                        
+                        <li class="page-item {% if current_page == 1 %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('main.home', page=current_page - 1, **url_params) }}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        
+                        {% for page_num in range(1, total_pages + 1) %}
+                            <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('main.home', page=page_num, **url_params) }}">{{ page_num }}</a>
+                            </li>
+                        {% endfor %}
+                        
+                        <li class="page-item {% if current_page == total_pages %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('main.home', page=current_page + 1, **url_params) }}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+    
+    <footer class="bg-light text-center text-lg-start mt-5">
+        <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.05);">
+            © 2024 产品系统 | 
+            <a class="text-dark" href="{{ url_for('main.contact') }}">联系我们</a>
+        </div>
+    </footer>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>
