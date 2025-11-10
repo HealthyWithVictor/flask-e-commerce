@@ -5,6 +5,12 @@
     <title>联系我们 - 商品管理系统</title>
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/bootstrap-icons.css') }}" rel="stylesheet">
+    <style>
+        .contact-info-panel {
+            /* Example of custom styling for emphasis */
+            border-right: 5px solid var(--bs-primary);
+        }
+    </style>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -44,15 +50,20 @@
         {% endwith %}
 
         <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-8">
-                <div class="card shadow-lg border-0">
-                    <div class="card-body p-4 p-md-5">
-                        <div class="row">
-                            <div class="col-lg-5 p-4 bg-light rounded-start d-flex flex-column justify-content-center">
-                                <h3 class="mb-3">垂询</h3>
-                                <p><i class="bi bi-envelope-fill me-2"></i> **hanli@wuhanronglida.com.cn**</p>
-                                <p><i class="bi bi-telephone-fill me-2"></i> **Tel: +86 2782280600**</p>
-                                <p><i class="bi bi-geo-alt-fill me-2"></i> **Head Office:**<br>Crown Name (WH) United Co., Ltd.<br>19F, Block B, Tínyuet Bund Finance Centre, No.8 Sanyang Road, Wuhan, Hubei, 430010, China</p>
+            <div class="col-md-10 col-lg-8"> <div class="card shadow-lg border-0">
+                    <div class="card-body p-0"> <div class="row g-0"> <div class="col-lg-5 p-4 text-bg-dark rounded-start d-flex flex-column justify-content-center contact-info-panel">
+                                <h2 class="mb-4 text-warning">联系方式</h2>
+                                <h5 class="mb-3 text-white">Henry Xu</h5>
+                                <p class="lead fw-bold mb-3">
+                                    武汉荣立达贸易有限公司<br>
+                                    Wuhan Ronglida Trade Company Limited
+                                </p>
+                                
+                                <p class="mb-2"><i class="bi bi-envelope-fill me-2"></i> Email: <br> <a href="mailto:hanli@wuhanronglida.com.cn" class="text-white">hanli@wuhanronglida.com.cn</a></p>
+                                <p class="mb-2"><i class="bi bi-telephone-fill me-2"></i> Tel: <br> (8627)85839618, 85885906</p>
+                                <p class="mb-2"><i class="bi bi-printer-fill me-2"></i> Fax: <br> (8627)85885907</p>
+                                <p class="mb-2"><i class="bi bi-whatsapp me-2"></i> Mobile/WhatsApp: <br> +86 15072427955</p>
+                                <p class="mt-4"><i class="bi bi-geo-alt-fill me-2"></i> 地址 (Address):<br>Room 2919-2920, Building A, Huanan International Plaza<br>No 222, Fazhan Avenue,<br>Wuhan, Hubei, P.R.China 430024</p>
                             </div>
                             
                             <div class="col-lg-7 p-4">
