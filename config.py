@@ -38,7 +38,8 @@ class Config:
     # 5. Talisman 安全配置
     # 从旧 app.py 迁移 [cite: 60-70]
     TALISMAN_CONFIG = {
-        'force_https': True, # 在生产中应为 True
+        'force_https': False, # 在生产中应为 True
+        'session_cookie_secure': False, # 显式设置 Talisman 的 session cookie 为不安全
         'content_security_policy': {
             'default-src': ["'self'", '*.cloudflare.com'],
             'img-src': ["'self'", 'data:'],
