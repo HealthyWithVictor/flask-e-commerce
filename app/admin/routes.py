@@ -17,7 +17,7 @@ from app.utils import allowed_file
 # --- 权限保护装饰器 ---
 def login_required(f):
     """
-    确保用户已登录才能访问管理面板路由。 [cite: 6-71]
+    确保用户已登录才能访问管理面板路由。
     注意：url_for('.admin_login') 中的 '.' 表示蓝图内的路由。
     """
     @wraps(f)
@@ -32,7 +32,7 @@ def login_required(f):
 @admin_bp.route('/login', methods=['GET', 'POST'])
 def admin_login():
     """
-    管理员登录页。 [cite: 22-77]
+    管理员登录页。
     """
     if request.method == 'POST':
         username = request.form['username']
@@ -40,12 +40,13 @@ def admin_login():
         
         user = query_db('SELECT * FROM users WHERE username = ?', [username], one=True)
         
-        if user and check_password_hash(user['password_hash'], password):
+        # --- [修改] 增加角色检查 ---
+        if user and check_password_hash(user['password_hash'], password) and user['role'] == 'admin':
             session['admin_logged_in'] = True
             flash('登录成功！', 'success')
             return redirect(url_for('admin.admin_index'))
         else:
-            flash('用户名或密码错误，请重试。', 'danger')
+            flash('用户名或密码错误，或您没有管理员权限。', 'danger')
 
     return render_template('login.html') # 模板在 'admin/' 目录中
 
@@ -53,7 +54,7 @@ def admin_login():
 @login_required # 登出也需要先登录
 def admin_logout():
     """
-    管理员登出。 [cite: 23-44]
+    管理员登出。
     """
     session.pop('admin_logged_in', None)
     flash('您已成功注销。', 'info')
@@ -66,7 +67,7 @@ def admin_logout():
 @login_required
 def admin_index():
     """
-    管理面板首页：商品列表。 [cite: 25-50]
+    管理面板首页：商品列表。
     """
     page = request.args.get('page', 1, type=int)
     category_id = request.args.get('category_id', type=int)
@@ -121,7 +122,7 @@ def admin_index():
 @login_required
 def admin_categories():
     """
-    管理分类 (添加)。 [cite: 30-10]
+    管理分类 (添加)。
     """
     if request.method == 'POST':
         category_name = request.form.get('name', '').strip()
@@ -156,7 +157,7 @@ def admin_categories():
 @login_required
 def admin_edit_category(category_id):
     """
-    编辑分类名称。 [cite: 32-35]
+    编辑分类名称。
     """
     new_name = request.form.get('new_category_name', '').strip()
     
@@ -184,7 +185,7 @@ def admin_edit_category(category_id):
 @login_required
 def admin_delete_category(category_id):
     """
-    删除分类。 [cite: 35-18]
+    删除分类。
     **重构修复**：使用绝对路径配置来删除文件。
     """
     db = get_db()
@@ -226,7 +227,7 @@ def admin_delete_category(category_id):
 @login_required
 def admin_add_product():
     """
-    添加商品。 [cite: 38-10]
+    添加商品。
     **重构修复**：使用绝对路径配置来保存文件。
     """
     if request.method == 'POST':
@@ -282,7 +283,7 @@ def admin_add_product():
 @login_required
 def admin_edit_product(product_id):
     """
-    编辑商品。 [cite: 42-63]
+    编辑商品。
     **重构修复**：使用绝对路径配置来保存文件。
     """
     product_row = query_db('SELECT * FROM products WHERE id = ?', [product_id], one=True)
@@ -350,7 +351,7 @@ def admin_edit_product(product_id):
                            product=product, 
                            categories=categories, 
                            images=images,
-                           current_page=1, # 修复基模板 UndefinedError [cite: 46-52]
+                           current_page=1, # 修复基模板 UndefinedError
                            total_pages=1, 
                            search_query='',
                            current_category_id=None)
@@ -359,7 +360,7 @@ def admin_edit_product(product_id):
 @login_required
 def admin_delete_image(image_id):
     """
-    删除单张图片。 [cite: 52-25]
+    删除单张图片。
     **重构修复**：使用绝对路径配置来删除文件。
     """
     db = get_db()
@@ -403,7 +404,7 @@ def admin_delete_image(image_id):
 @login_required
 def admin_delete_product(product_id):
     """
-    删除整个商品。 [cite: 56-18]
+    删除整个商品。
     **重构修复**：使用绝对路径配置来删除文件。
     """
     db = get_db()

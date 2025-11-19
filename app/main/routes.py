@@ -1,14 +1,99 @@
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, session, g
 import math
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
+import sqlite3
+
 from . import main_bp
-from app.db import query_db
+from app.db import query_db, get_db
 from app.utils import send_contact_email
+
+# --- [新增] 访客登录装饰器 ---
+def guest_login_required(f):
+    """
+    确保访客用户已登录。
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('guest_logged_in'):
+            flash('您必须登录才能查看此页面。', 'warning')
+            return redirect(url_for('main.guest_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- [新增] 访客用户认证路由 ---
+
+@main_bp.route('/register', methods=['GET', 'POST'])
+def guest_register():
+    if session.get('guest_logged_in'):
+        return redirect(url_for('main.home'))
+        
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+        
+        db = get_db()
+        try:
+            db.execute(
+                "INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, 'guest')",
+                (username, email, generate_password_hash(password))
+            )
+            db.commit()
+            
+            # 注册后自动登录
+            user = query_db('SELECT * FROM users WHERE username = ?', [username], one=True)
+            session['guest_logged_in'] = True
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            
+            flash('注册成功！', 'success')
+            return redirect(url_for('main.home'))
+        except sqlite3.IntegrityError:
+            db.rollback()
+            flash('用户名或邮箱已存在。', 'danger')
+        except Exception as e:
+            db.rollback()
+            flash(f'注册失败: {e}', 'danger')
+            
+    return render_template('guest_register.html')
+
+@main_bp.route('/login', methods=['GET', 'POST'])
+def guest_login():
+    if session.get('guest_logged_in'):
+        return redirect(url_for('main.home'))
+        
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        user = query_db('SELECT * FROM users WHERE username = ?', [username], one=True)
+        
+        if user and check_password_hash(user['password_hash'], password):
+            session['guest_logged_in'] = True
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            flash('登录成功！', 'success')
+            return redirect(url_for('main.home'))
+        else:
+            flash('用户名或密码错误。', 'danger')
+            
+    return render_template('guest_login.html')
+
+@main_bp.route('/logout')
+def guest_logout():
+    session.pop('guest_logged_in', None)
+    session.pop('user_id', None)
+    session.pop('username', None)
+    flash('您已成功注销。', 'info')
+    return redirect(url_for('main.home'))
+
 
 # --- 用户前台路由：首页 ---
 @main_bp.route('/')
 def home():
     """
-    前台首页：展示所有商品，支持分类筛选、分页和搜索。 [cite: 9-52]
+    前台首页：展示所有商品，支持分类筛选、分页和搜索。
     """
     page = request.args.get('page', 1, type=int)
     category_id = request.args.get('category_id', type=int)
@@ -64,7 +149,7 @@ def home():
 @main_bp.route('/contact', methods=['GET', 'POST'])
 def contact():
     """
-    联系页面，POST 请求时调用工具函数发送邮件。 [cite: 13-68]
+    联系页面，POST 请求时调用工具函数发送邮件。
     """
     if request.method == 'POST':
         try:
@@ -91,13 +176,14 @@ def contact():
     # GET 请求时渲染 contact.html 模板
     return render_template('contact.html')
 
-# --- 详细页面 ---
+# --- 详细页面 [修改] ---
 @main_bp.route('/product/<int:product_id>')
 def product_detail(product_id):
     """
-    产品详情页。 [cite: 20-33]
+    产品详情页。
     """
-    product = query_db('SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.id = ?',
+    # [修改] 使用 LEFT JOIN 防止产品无分类时出错
+    product = query_db('SELECT p.*, c.name AS category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?',
                        [product_id], one=True)
 
     if product is None:
@@ -106,5 +192,34 @@ def product_detail(product_id):
 
     images = query_db('SELECT image_url FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, sort_order ASC',
                       [product_id])
+    
+    # --- [新增] 查询留言 ---
+    comments = query_db('SELECT * FROM comments WHERE product_id = ? ORDER BY created_at DESC', [product_id])
 
-    return render_template('product_detail.html', product=product, images=images)
+    return render_template('product_detail.html', product=product, images=images, comments=comments)
+
+# --- [新增] 留言路由 ---
+@main_bp.route('/product/<int:product_id>/comment', methods=['POST'])
+@guest_login_required
+def add_comment(product_id):
+    body = request.form.get('body')
+    user_id = session.get('user_id')
+    username = session.get('username')
+    
+    if not body:
+        flash('留言内容不能为空。', 'danger')
+        return redirect(url_for('main.product_detail', product_id=product_id))
+        
+    try:
+        db = get_db()
+        db.execute(
+            'INSERT INTO comments (product_id, user_id, username, body) VALUES (?, ?, ?, ?)',
+            (product_id, user_id, username, body)
+        )
+        db.commit()
+        flash('留言成功！', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'留言失败: {e}', 'danger')
+        
+    return redirect(url_for('main.product_detail', product_id=product_id))

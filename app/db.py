@@ -32,16 +32,26 @@ def query_db(query, args=(), one=False):
     db = get_db()
     cur = db.execute(query, args)
     rv = cur.fetchall()
-    # 注意：在重构中，我们保持了原始 app.py 中移除 cur.close() 的逻辑 [cite: 9-33]
     return (rv[0] if rv else None) if one else rv
+
+def check_column_exists(db, table_name, column_name):
+    """[新增] 辅助函数：检查列是否存在"""
+    try:
+        cursor = db.execute(f"PRAGMA table_info({table_name})")
+        columns = [row['name'] for row in cursor.fetchall()]
+        return column_name in columns
+    except sqlite3.Error as e:
+        print(f"检查列是否存在时出错: {e}")
+        return False
 
 def init_db():
     """
-    初始化数据库表的函数。
+    [修改] 初始化数据库表的函数，包含安全迁移逻辑。
     """
     db = get_db()
     
-    # 完整的数据库 Schema (从 init_db.py 迁移而来)
+    # 1. 创建所有表（如果它们不存在）
+    # 注意：这里的 users 表是旧结构，以确保 IF NOT EXISTS 正常工作
     db.executescript('''
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,35 +78,88 @@ def init_db():
             FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
         );
 
+        /* 使用旧结构，以便安全地检查和迁移 */
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL
         );
+
+        /* [新增] comments 表 */
+        CREATE TABLE IF NOT EXISTS comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            body TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        );
     ''')
     
-    # 检查是否已存在管理员
+    # 2. [修改] 安全迁移逻辑，用于 users 表
+    try:
+        if not check_column_exists(db, 'users', 'email'):
+            # 第1步：添加列，但不带 UNIQUE 约束
+            db.execute('ALTER TABLE users ADD COLUMN email TEXT')
+            print("迁移：已成功添加 'email' 列到 'users' 表。")
+            
+            # 第2步：为现有 admin 用户设置一个默认 email
+            db.execute("UPDATE users SET email = 'admin@example.com' WHERE username = 'admin' AND email IS NULL")
+            print("迁移：已为 'admin' 用户设置默认 'email'。")
+            
+            # 第3步：现在安全地创建 UNIQUE 索引
+            # (SQLite 允许 UNIQUE 索引中存在多个 NULL 值，但为 admin 设置值是好习惯)
+            db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)')
+            print("迁移：已为 'email' 列创建 UNIQUE 索引。")
+            
+        if not check_column_exists(db, 'users', 'role'):
+            # 这个操作是安全的，因为它有 DEFAULT 值
+            db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'guest'")
+            print("迁移：已成功添加 'role' 列到 'users' 表。")
+
+        # 确保现有管理员被正确设置为 'admin' 角色
+        db.execute("UPDATE users SET role = 'admin' WHERE username = 'admin' AND (role IS NULL OR role = 'guest')")
+        
+        db.commit()
+        print("数据库迁移检查完成。")
+        
+    except sqlite3.Error as e:
+        db.rollback()
+        # 打印修改后的错误信息
+        print(f"数据库迁移时发生错误: {e}")
+
+    
+    # 3. 检查并创建默认管理员（如果需要）
     admin_user = query_db('SELECT * FROM users WHERE username = ?', ['admin'], one=True)
     if not admin_user:
-        # 创建默认管理员 (admin / admin)
-        db.execute(
-            'INSERT INTO users (username, password_hash) VALUES (?, ?)',
-            ('admin', generate_password_hash('admin'))
-        )
-        db.commit()
-        print("Default admin user 'admin' with password 'admin' created.")
+        # [修改] 使用新结构创建管理员
+        try:
+            db.execute(
+                'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
+                ('admin', 'admin@example.com', generate_password_hash('admin'), 'admin')
+            )
+            db.commit()
+            print("默认管理员 'admin' (密码 'admin') 已创建。")
+        except sqlite3.IntegrityError:
+             db.rollback()
+             print("创建默认管理员失败：'admin' 用户名或 'admin@example.com' 邮箱可能已存在。")
+        except sqlite3.Error as e:
+            db.rollback()
+            print(f"创建默认管理员失败: {e}")
     else:
-        print("Admin user already exists.")
+        print("管理员用户已存在。")
 
 @click.command('init-db')
 @with_appcontext
 def init_db_command():
     """
     Flask CLI 命令：flask init-db
-    用于清空并重建数据库表。
+    用于初始化或安全迁移数据库。
     """
     init_db()
-    click.echo('Initialized the database.')
+    click.echo('Initialized and/or migrated the database.')
 
 def init_app(app):
     """

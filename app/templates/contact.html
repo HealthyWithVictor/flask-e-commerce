@@ -13,18 +13,42 @@
     </style>
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- 导航栏 [修改] - 保持导航栏一致性 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.home') }}">我们的产品</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item me-2">
-                        <a class="nav-link text-white active" aria-current="page" href="{{ url_for('main.contact') }}">联系我们</a>
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.home') }}">首页</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="{{ url_for('main.contact') }}">联系我们</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <!-- --- [新增] 访客认证链接 --- -->
+                    {% if guest_logged_in %}
+                        <li class="nav-item">
+                            <span class="nav-link">欢迎, {{ username }}!</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.guest_logout') }}">注销</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.guest_login') }}">登录</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.guest_register') }}">注册</a>
+                        </li>
+                    {% endif %}
+                    
+                    <!-- 管理员入口 -->
+                    <li class="nav-item ms-2">
                         <a class="btn btn-outline-light" href="{{ url_for('admin.admin_index') }}">进入管理面板</a>
                     </li>
                 </ul>

@@ -10,15 +10,62 @@
 
 </head>
 <body class="bg-light">
-    <!-- 导航栏 -->
+    <!-- 导航栏 [修改] - 保持导航栏一致性 -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.home') }}"><i class="bi bi-shop me-2"></i>产品详情</a>
-            <a class="btn btn-outline-light" href="{{ url_for('admin.admin_index') }}"><i class="bi bi-gear me-1"></i>管理面板</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.home') }}">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.contact') }}">联系我们</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <!-- --- [新增] 访客认证链接 --- -->
+                    {% if guest_logged_in %}
+                        <li class="nav-item">
+                            <span class="nav-link">欢迎, {{ username }}!</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.guest_logout') }}">注销</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.guest_login') }}">登录</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.guest_register') }}">注册</a>
+                        </li>
+                    {% endif %}
+                    
+                    <!-- 管理员入口 -->
+                    <li class="nav-item ms-2">
+                        <a class="btn btn-outline-light" href="{{ url_for('admin.admin_index') }}"><i class="bi bi-gear me-1"></i>管理面板</a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 
     <div class="container mt-5 mb-5">
+        <!-- [新增] 消息闪现 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
         <!-- 主卡片容器 -->
         <div class="card shadow-lg border-0">
             <div class="row g-0">
@@ -76,18 +123,17 @@
                         
                         <hr class="my-4">
 
-                        <!-- 产品描述 (修复后的渲染) -->
+                        <!-- 产品描述 -->
                         <h5 class="fw-bold mb-3"><i class="bi bi-file-text me-2 text-info"></i>产品描述</h5>
-                        <!-- 核心修改：使用 |nl2br 和 |safe 确保换行和 HTML 安全渲染 -->
                         <p class="product-description-content border rounded p-3 bg-light">{{ product.description|nl2br|safe }}</p>
                         
                         <!-- 操作按钮区 -->
                         <div class="mt-5 d-grid gap-3 d-md-flex">
-                            <!-- 1. 咨价按钮 (新添加，主色调) -->
+                            <!-- 1. 咨价按钮 -->
                             <a href="{{ url_for('main.contact') }}" class="btn btn-primary btn-lg shadow-sm">
                                 <i class="bi bi-chat-dots-fill me-2"></i>立即咨价/咨询
                             </a>
-                            <!-- 2. 返回列表 (次要操作) -->
+                            <!-- 2. 返回列表 -->
                             <a href="{{ url_for('main.home') }}" class="btn btn-outline-secondary btn-lg">
                                 <i class="bi bi-arrow-left me-2"></i>返回产品列表
                             </a>
@@ -97,6 +143,68 @@
                 </div>
             </div>
         </div>
+
+        <!-- --- [新增] 留言区域 --- -->
+        <div class="card shadow-lg border-0 mt-5">
+            <div class="card-header">
+                <h4 class="mb-0">访客留言</h4>
+            </div>
+            <div class="card-body p-4">
+                
+                <!-- 留言表单 -->
+                {% if guest_logged_in %}
+                <form method="POST" action="{{ url_for('main.add_comment', product_id=product.id) }}" class="mb-4">
+                    <div class="mb-3">
+                        <label for="comment-body" class="form-label">发表您的留言, {{ username }}:</label>
+                        <textarea class="form-control" id="comment-body" name="body" rows="4" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">提交留言</button>
+                </form>
+                {% else %}
+                <div class="alert alert-info">
+                    请 <a href="{{ url_for('main.guest_login') }}" class="alert-link">登录</a> 
+                    或 <a href="{{ url_for('main.guest_register') }}" class="alert-link">注册</a> 
+                    后发表留言。
+                </div>
+                {% endif %}
+                
+                <hr>
+                
+                <!-- 留言列表 -->
+                <h5 class="mb-3">所有留言 ({{ comments|length }})</h5>
+                {% if comments %}
+                    {% for comment in comments %}
+                    <div class="d-flex mb-3">
+                        <div class="flex-shrink-0">
+                            <!-- 访客头像占位符 -->
+                            <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                {{ comment.username[0]|upper }}
+                            </div>
+                        </div>
+                        <div class="ms-3 flex-grow-1">
+                            <div class="fw-bold">{{ comment.username }}</div>
+                            <small class="text-muted">
+                                <!-- 假设 sqlite3 驱动返回了 datetime 对象 -->
+                                {% if comment.created_at.strftime %}
+                                    {{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                {% else %}
+                                    {{ comment.created_at }}
+                                {% endif %}
+                            </small>
+                            <p class="mt-2 mb-0">
+                                <!-- 确保留言内容安全显示换行 -->
+                                {{ comment.body|nl2br|safe }}
+                            </p>
+                        </div>
+                    </div>
+                    {% if not loop.last %}<hr class="my-2">{% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">暂无留言。</p>
+                {% endif %}
+            </div>
+        </div>
+
     </div>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
 </body>

@@ -13,7 +13,7 @@
 </head>
 <body>
     
-    <!-- 导航栏 -->
+    <!-- 导航栏 [修改] -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.home') }}"><i class="bi bi-shop me-2"></i>产品展示系统</a>
@@ -30,8 +30,25 @@
                     </li>
                 </ul>
                 <ul class="navbar-nav ms-auto">
+                    <!-- --- [修改] 访客认证链接 --- -->
+                    {% if guest_logged_in %}
+                        <li class="nav-item">
+                            <span class="nav-link">欢迎, {{ username }}!</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.guest_logout') }}">注销</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.guest_login') }}">登录</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.guest_register') }}">注册</a>
+                        </li>
+                    {% endif %}
+                    
                     <!-- 管理员入口 -->
-                    <li class="nav-item">
+                    <li class="nav-item ms-2">
                         <a class="nav-link btn btn-sm btn-outline-light px-3" href="{{ url_for('admin.admin_index') }}"><i class="bi bi-shield-lock-fill me-1"></i>管理后台</a>
                     </li>
                 </ul>
@@ -65,7 +82,7 @@
                     <ul class="list-group list-group-flush category-list">
                         <a href="{{ url_for('main.home', search_query=search_query) }}" class="list-group-item list-group-item-action {% if not current_category_id %}active{% endif %}">全部产品</a>
                         {% for category in categories %}
-                            {% set is_active = current_category_id == category.id %}
+                            {% set is_active = current_category_id|string == category.id|string %}
                             <a href="{{ url_for('main.home', category_id=category.id, search_query=search_query) }}" 
                                class="list-group-item list-group-item-action {% if is_active %}active{% endif %}">
                                 {{ category.name }}
@@ -109,7 +126,7 @@
                                  onerror="this.onerror=null;this.src='{{ url_for('static', filename='uploads/placeholder.png') }}';">
                             <div class="card-body d-flex flex-column">
                                 <h5 class="card-title text-truncate">{{ product.name }}</h5>
-                                <p class="card-text text-muted small mb-2 text-truncate">{{ product.category_name }}</p>
+                                <p class="card-text text-muted small mb-2 text-truncate">{{ product.category_name or '无分类' }}</p>
                                 <p class="card-text fw-bold text-success fs-5 mb-3">¥ {{ product.price|round(2) }}</p>
                                 <div class="mt-auto">
                                     <a href="{{ url_for('main.product_detail', product_id=product.id) }}" class="btn btn-primary w-100">查看详情</a>
