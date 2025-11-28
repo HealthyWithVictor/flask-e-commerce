@@ -44,7 +44,7 @@
                 <div class="card p-4 shadow-sm mb-4">
                     <h4>添加新分类</h4>
                     <!-- 确保表单提交到正确的路由 -->
-                    <form method="POST" action="{{ url_for('admin_categories') }}">
+                    <form method="POST" action="{{ url_for('admin.admin_categories') }}">
                         <div class="mb-3">
                             <label for="name" class="form-label">分类名称</label>
                             <input type="text" class="form-control" id="name" name="name" required>
@@ -59,12 +59,6 @@
                     <ul class="list-group">
                         {% for category in categories %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-<<<<<<< HEAD:app/templates/admin/categories.html
-                            {{ category.name }}
-                            <a href="{{ url_for('admin.admin_delete_category', category_id=category.id) }}" 
-                               class="btn btn-sm btn-danger" 
-                               onclick="return confirm('确定要删除分类【{{ category.name }}】吗？同时会删除该分类下的所有商品及图片！')"><i class="bi bi-trash"></i> 删除</a>
-=======
                             <span class="fw-bold">{{ category.name }}</span>
                             
                             <!-- 编辑和删除按钮组 -->
@@ -75,18 +69,17 @@
                                 </button>
                                 
                                 <!-- 删除按钮 -->
-                                <a href="{{ url_for('admin_delete_category', category_id=category.id) }}" 
+                                <a href="{{ url_for('admin.admin_delete_category', category_id=category.id) }}" 
                                    class="btn btn-sm btn-danger" 
                                    onclick="return confirm('确定要删除分类【{{ category.name }}】吗？同时会删除该分类下的所有商品及图片！')"><i class="bi bi-trash"></i> 删除</a>
                             </div>
->>>>>>> e70d23264cd841d6c2860bfc36316a6927e8cfc4:templates/admin/categories.html
                         </li>
                         
                         <!-- 模态框 (Modal) 用于编辑 -->
                         <div class="modal fade" id="editModal-{{ category.id }}" tabindex="-1" aria-labelledby="editModalLabel-{{ category.id }}" aria-hidden="true">
                             <div class="modal-dialog">
                                 <div class="modal-content">
-                                    <form method="POST" action="{{ url_for('admin_edit_category', category_id=category.id) }}">
+                                    <form method="POST" action="{{ url_for('admin.admin_edit_category', category_id=category.id) }}">
                                         <div class="modal-header">
                                             <h5 class="modal-title" id="editModalLabel-{{ category.id }}">编辑分类: {{ category.name }}</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
