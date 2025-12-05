@@ -182,7 +182,18 @@
                             </div>
                         </div>
                         <div class="ms-3 flex-grow-1">
-                            <div class="fw-bold">{{ comment.username }}</div>
+                            <div class="d-flex justify-content-between">
+                                <div class="fw-bold">{{ comment.username }}</div>
+                                {% if guest_logged_in and comment.user_id == session.user_id %}
+                                <form method="POST" action="{{ url_for('main.delete_comment', comment_id=comment.id) }}"
+                                      style="display: inline;"
+                                      onsubmit="return confirm('确定要删除此评论吗？');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="删除评论">
+                                        <i class="bi bi-trash"></i> 删除
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
                             <small class="text-muted">
                                 <!-- 假设 sqlite3 驱动返回了 datetime 对象 -->
                                 {% if comment.created_at.strftime %}

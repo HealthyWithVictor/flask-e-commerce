@@ -223,3 +223,33 @@ def add_comment(product_id):
         flash(f'留言失败: {e}', 'danger')
         
     return redirect(url_for('main.product_detail', product_id=product_id))
+
+# --- [新增] 删除评论路由 ---
+@main_bp.route('/comment/<int:comment_id>/delete', methods=['POST'])
+@guest_login_required
+def delete_comment(comment_id):
+    user_id = session.get('user_id')
+
+    # 首先获取评论信息以验证用户权限
+    comment = query_db('SELECT * FROM comments WHERE id = ?', [comment_id], one=True)
+
+    if not comment:
+        flash('评论不存在。', 'danger')
+        return redirect(request.referrer or url_for('main.home'))
+
+    # 检查是否是评论的作者
+    if comment['user_id'] != user_id:
+        flash('您没有权限删除此评论。', 'danger')
+        return redirect(request.referrer or url_for('main.home'))
+
+    try:
+        db = get_db()
+        db.execute('DELETE FROM comments WHERE id = ?', [comment_id])
+        db.commit()
+        flash('评论已成功删除！', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'删除评论失败: {e}', 'danger')
+
+    # 重定向回产品详情页
+    return redirect(url_for('main.product_detail', product_id=comment['product_id']))
