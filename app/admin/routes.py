@@ -185,42 +185,60 @@ def admin_edit_category(category_id):
 @login_required
 def admin_delete_category(category_id):
     """
-    删除分类。
-    **重构修复**：使用绝对路径配置来删除文件。
+    彻底删除分类及其所有相关数据
     """
     db = get_db()
-    
-    # 1. 查询此分类下所有商品的图片
-    images_to_delete = query_db('''
-        SELECT pi.image_url 
-        FROM product_images pi
-        JOIN products p ON pi.product_id = p.id
-        WHERE p.category_id = ?
-    ''', [category_id])
-    
-    # 2. 删除物理文件
-    upload_folder = current_app.config['UPLOAD_FOLDER']
-    for image in images_to_delete:
-        # image['image_url'] 是 'uploads/filename.jpg'
-        # 我们需要从 'uploads/' 中获取 'filename.jpg'
-        filename = os.path.basename(image['image_url'])
-        image_path = os.path.join(upload_folder, filename)
-        
-        if os.path.exists(image_path):
-            try:
-                os.remove(image_path)
-            except OSError as e:
-                print(f"无法删除图片文件 {image_path}: {e}")
-                
-    # 3. 删除数据库记录 (ON DELETE CASCADE 会自动处理 products 和 product_images)
     try:
+        # 1. 获取该分类下的所有商品ID
+        products = query_db('SELECT id FROM products WHERE category_id = ?', [category_id])
+        product_ids = [product['id'] for product in products]
+        
+        # 2. 删除这些商品的所有图片文件
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        
+        if product_ids:
+            # 获取所有相关图片
+            placeholders = ','.join('?' for _ in product_ids)
+            images_to_delete = query_db(
+                f'SELECT image_url FROM product_images WHERE product_id IN ({placeholders})',
+                product_ids
+            )
+            
+            # 删除物理图片文件
+            for image in images_to_delete:
+                filename = os.path.basename(image['image_url'])
+                image_path = os.path.join(upload_folder, filename)
+                if os.path.exists(image_path):
+                    try:
+                        os.remove(image_path)
+                    except OSError as e:
+                        print(f"无法删除图片文件 {image_path}: {e}")
+            
+            # 3. 先删除商品图片记录（避免外键约束问题）
+            db.execute(f'DELETE FROM product_images WHERE product_id IN ({placeholders})', product_ids)
+            
+            # 4. 再删除商品评论（避免外键约束问题）
+            db.execute(f'DELETE FROM comments WHERE product_id IN ({placeholders})', product_ids)
+            
+            # 5. 最后删除商品
+            db.execute(f'DELETE FROM products WHERE category_id = ?', [category_id])
+        
+        # 6. 删除分类
         db.execute('DELETE FROM categories WHERE id = ?', (category_id,))
         db.commit()
-        flash('分类及所属商品（和图片）已删除!', 'success')
+        flash('分类及所有相关商品、图片和评论已彻底删除!', 'success')
     except sqlite3.Error as e:
         db.rollback()
         flash(f'删除分类失败: {e}', 'danger')
-        
+        print(f"数据库错误: {e}")
+        import traceback
+        traceback.print_exc()
+    except Exception as e:
+        db.rollback()
+        flash(f'删除过程中发生错误: {e}', 'danger')
+        print(f"一般错误: {e}")
+        import traceback
+        traceback.print_exc()
     return redirect(url_for('admin.admin_categories'))
 
 @admin_bp.route('/add', methods=['GET', 'POST'])

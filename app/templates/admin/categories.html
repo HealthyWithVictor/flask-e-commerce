@@ -68,10 +68,17 @@
                                     <i class="bi bi-pencil"></i> 编辑
                                 </button>
                                 
-                                <!-- 删除按钮 -->
+                                <!-- 
+                                    [修改点] 删除按钮：
+                                    1. 移除了 onclick="..." 避免 CSP 拦截
+                                    2. 添加了 class="delete-confirm" 供 JS 识别
+                                    3. 添加了 data-name="..." 传递分类名称
+                                -->
                                 <a href="{{ url_for('admin.admin_delete_category', category_id=category.id) }}" 
-                                   class="btn btn-sm btn-danger" 
-                                   onclick="return confirm('确定要删除分类【{{ category.name }}】吗？同时会删除该分类下的所有商品及图片！')"><i class="bi bi-trash"></i> 删除</a>
+                                   class="btn btn-sm btn-danger delete-confirm" 
+                                   data-name="{{ category.name }}">
+                                    <i class="bi bi-trash"></i> 删除
+                                </a>
                             </div>
                         </li>
                         
@@ -114,5 +121,8 @@
     </div>
     <!-- 引入 Bootstrap JavaScript Bundle (包含 Popper) -->
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    
+    <!-- [修改点] 引入外部自定义 JS 处理删除确认 -->
+    <script src="{{ url_for('static', filename='js/admin_actions.js') }}"></script>
 </body>
 </html>

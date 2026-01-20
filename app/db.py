@@ -15,6 +15,8 @@ def get_db():
             detect_types=sqlite3.PARSE_DECLTYPES
         )
         g.db.row_factory = sqlite3.Row
+        # 启用外键约束
+        g.db.execute("PRAGMA foreign_keys = ON")  # 新增这行
     return g.db
 
 def close_db(e=None):
